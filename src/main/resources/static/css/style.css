@@ -1,14 +1,27 @@
 :root {
-    --primary-color: #00d4ff;
-    --secondary-color: #7b2ff7;
-    --accent-color: #00f5ff;
-    --success-color: #00ff88;
-    --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%);
-    --gradient-secondary: linear-gradient(135deg, #7b2ff7 0%, #00d4ff 100%);
-    --gradient-glow: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(123, 47, 247, 0.3));
-    --dark-bg: #0a0e27;
-    --card-bg: rgba(15, 23, 42, 0.8);
-    --border-glow: rgba(0, 212, 255, 0.5);
+    /* 浅色淡雅主题色系 */
+    --primary-color: #4f46e5;
+    --primary-hover: #4338ca;
+    --secondary-color: #8b5cf6;
+    --accent-color: #06b6d4;
+
+    /* 渐变色 */
+    --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
+    --gradient-hover: linear-gradient(135deg, #4338ca 0%, #7c3aed 100%);
+
+    /* 背景与文本 */
+    --bg-color: #f8fafc;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+
+    /* 玻璃拟态卡片 */
+    --card-bg: rgba(255, 255, 255, 0.75);
+    --card-border: rgba(255, 255, 255, 0.8);
+    --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+
+    /* 组件背景 */
+    --input-bg: rgba(255, 255, 255, 0.9);
+    --upload-area-bg: rgba(241, 245, 249, 0.6);
 }
 
 * {
@@ -18,471 +31,256 @@
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--dark-bg);
-    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(123, 47, 247, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(0, 212, 255, 0.15) 0px, transparent 50%);
+    line-height: 1.6;
 }
 
-.particles-background {
+/* --- 炫酷且高效的动态背景 (纯CSS实现) --- */
+.background-animation {
     position: fixed;
-    width: 100%;
-    height: 100%;
     top: 0;
     left: 0;
-    z-index: 0;
-    background: var(--dark-bg);
-}
-
-.bg-gradient {
-    background: var(--gradient-primary) !important;
-    position: relative;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
     overflow: hidden;
+    background: #f0f2f5;
 }
 
-.bg-gradient::before {
-    content: '';
+.shape {
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    animation: shine 3s infinite;
+    filter: blur(80px);
+    opacity: 0.6;
+    animation: float 20s infinite ease-in-out alternate;
+    border-radius: 50%;
 }
 
-@keyframes shine {
-    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+.shape-1 {
+    top: -10%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, #c4b5fd 0%, rgba(196, 181, 253, 0) 70%);
+    animation-delay: -2s;
 }
 
+.shape-2 {
+    bottom: -10%;
+    right: -5%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, #a5f3fc 0%, rgba(165, 243, 252, 0) 70%);
+    animation-delay: -5s;
+}
+
+.shape-3 {
+    top: 40%;
+    left: 40%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, #fbcfe8 0%, rgba(251, 207, 232, 0) 70%);
+    animation-delay: -8s;
+}
+
+@keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(50px, 50px) rotate(20deg); }
+}
+
+/* --- 卡片样式 --- */
 .card {
     background: var(--card-bg);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    border-radius: 20px;
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        0 0 0 1px rgba(0, 212, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
-    transition: left 0.5s;
-}
-
-.card:hover::before {
-    left: 100%;
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card:hover {
-    transform: translateY(-8px) scale(1.02);
-    border-color: var(--border-glow);
-    box-shadow: 
-        0 20px 60px rgba(0, 212, 255, 0.3),
-        0 0 40px rgba(123, 47, 247, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.12);
 }
 
-.upload-area {
-    border: 2px dashed rgba(0, 212, 255, 0.3);
-    border-radius: 16px;
-    background: rgba(0, 212, 255, 0.05);
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+.card-header {
+    background: transparent;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 24px 32px;
 }
 
-.upload-area::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(0, 212, 255, 0.2), transparent);
-    transform: translate(-50%, -50%);
-    transition: width 0.6s, height 0.6s;
+.card-body {
+    padding: 32px;
 }
 
-.upload-area:hover::before,
-.upload-area.drag-over::before {
-    width: 300px;
-    height: 300px;
-}
-
-.upload-area:hover,
-.upload-area.drag-over {
-    border-color: var(--accent-color);
-    background: rgba(0, 212, 255, 0.1);
-    box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
-    transform: scale(1.02);
-}
-
-.upload-area i {
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
-}
-
-.upload-area:hover i {
-    transform: scale(1.2) rotate(10deg);
-    filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.8));
-}
-
+/* --- 按钮美化 --- */
 .btn {
     border-radius: 12px;
-    padding: 12px 32px;
+    padding: 12px 28px;
     font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s ease;
+    border: none;
+    letter-spacing: 0.3px;
     position: relative;
     overflow: hidden;
-    border: none;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 0.875rem;
-}
-
-.btn::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    transform: translate(-50%, -50%);
-    transition: width 0.6s, height 0.6s;
-}
-
-.btn:hover::before {
-    width: 300px;
-    height: 300px;
-}
-
-.btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
-}
-
-.btn:active {
-    transform: translateY(-1px);
 }
 
 .btn-primary {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
 }
 
 .btn-primary:hover {
-    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.5);
+    background: var(--gradient-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
 }
 
 .btn-success {
-    background: var(--gradient-secondary);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
     color: white;
-    box-shadow: 0 4px 15px rgba(123, 47, 247, 0.3);
 }
 
 .btn-success:hover {
-    box-shadow: 0 8px 25px rgba(123, 47, 247, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
-.btn-danger {
-    background: linear-gradient(135deg, #ff006e, #ff3366);
-    color: white;
+.btn-secondary {
+    background: white;
+    color: var(--text-main);
+    border: 1px solid #e2e8f0;
 }
 
-.nav-pills .nav-link {
-    border-radius: 12px;
-    padding: 10px 24px;
-    font-weight: 500;
-    transition: all 0.3s;
-    background: rgba(0, 212, 255, 0.1);
-    color: rgba(226, 232, 240, 0.7);
-    border: 1px solid rgba(0, 212, 255, 0.2);
+.btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
 }
 
-.nav-pills .nav-link.active {
-    background: var(--gradient-primary);
-    color: white;
-    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
-    border-color: transparent;
-}
-
-.nav-pills .nav-link:hover:not(.active) {
-    background: rgba(0, 212, 255, 0.2);
-    color: var(--accent-color);
-    border-color: rgba(0, 212, 255, 0.4);
-}
-
-.progress {
-    height: 8px;
-    border-radius: 10px;
-    background: rgba(0, 212, 255, 0.1);
-    overflow: hidden;
+/* --- 上传区域美化 --- */
+.upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 20px;
+    background: var(--upload-area-bg);
+    cursor: pointer;
+    transition: all 0.3s ease;
     position: relative;
+    overflow: hidden;
+}
+
+.upload-area:hover,
+.upload-area.drag-over {
+    border-color: var(--primary-color);
+    background: rgba(240, 249, 255, 0.8);
+    transform: scale(1.01);
+}
+
+.upload-area i {
+    color: #94a3b8;
+    transition: all 0.3s ease;
+}
+
+.upload-area:hover i {
+    color: var(--primary-color);
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* --- 表单元素 --- */
+.form-control {
+    background: var(--input-bg);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--text-main);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+}
+
+.form-control:focus {
+    background: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    outline: none;
+}
+
+.nav-tabs {
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 12px 24px;
+    border-radius: 12px 12px 0 0;
+    transition: all 0.3s;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    background: transparent;
+    border-bottom: 2px solid var(--primary-color);
+    margin-bottom: -2px;
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    color: var(--primary-color);
+    background: rgba(241, 245, 249, 0.5);
+}
+
+/* --- 分享ID显示特效 --- */
+.share-id-display {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: 8px;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    text-shadow: 0 10px 30px rgba(79, 70, 229, 0.2);
+}
+
+/* --- 工具类修正 --- */
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.bg-light {
+    background-color: #f1f5f9 !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* 进度条美化 */
+.progress {
+    height: 10px;
+    background-color: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 .progress-bar {
     background: var(--gradient-primary);
-    border-radius: 10px;
-    position: relative;
-    overflow: hidden;
 }
 
-.progress-bar::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.form-control {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    color: #e2e8f0;
-    border-radius: 12px;
-    padding: 12px 16px;
-    transition: all 0.3s;
-}
-
-.form-control:focus {
-    background: rgba(15, 23, 42, 0.8);
-    border-color: var(--accent-color);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-    color: #e2e8f0;
-    outline: none;
-}
-
-.form-control::placeholder {
-    color: rgba(226, 232, 240, 0.5);
-}
-
-textarea.form-control {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    color: #e2e8f0;
-    resize: vertical;
-}
-
-.share-id-display {
-    font-size: 4rem;
-    font-weight: 900;
-    letter-spacing: 12px;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
-    animation: glow 2s ease-in-out infinite alternate;
-    font-family: 'Courier New', monospace;
-}
-
-@keyframes glow {
-    from {
-        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
-    }
-    to {
-        filter: drop-shadow(0 0 20px rgba(123, 47, 247, 0.8));
-    }
-}
-
-.card-header {
-    background: var(--gradient-primary);
-    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
-    padding: 20px;
-}
-
-.card-body {
-    padding: 30px;
-    background: rgba(15, 23, 42, 0.4);
-}
-
-.card-footer {
-    background: rgba(15, 23, 42, 0.6);
-    border-top: 1px solid rgba(0, 212, 255, 0.2);
-    padding: 15px 20px;
-}
-
-.navbar {
-    background: rgba(15, 23, 42, 0.8) !important;
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-}
-
-.navbar-brand {
-    font-weight: 700;
-    font-size: 1.5rem;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.nav-link {
-    color: rgba(226, 232, 240, 0.8) !important;
-    transition: all 0.3s;
-}
-
-.nav-link:hover {
-    color: var(--accent-color) !important;
-}
-
-/* 动画效果 */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.6s ease forwards;
-}
-
-.animate-fade-in-up {
-    animation: fadeInUp 0.8s ease forwards;
-}
-
-.animate-slide-in-right {
-    animation: slideInRight 0.6s ease forwards;
-}
-
-/* 加载动画 */
-.spinner-border {
-    border-color: var(--accent-color);
-    border-right-color: transparent;
-}
-
-/* 内容区域 */
-.content-viewer {
-    min-height: 400px;
-    padding: 20px;
-    background: rgba(15, 23, 42, 0.3);
-    border-radius: 12px;
-    border: 1px solid rgba(0, 212, 255, 0.1);
-}
-
-.content-viewer pre {
-    background: rgba(15, 23, 42, 0.8) !important;
-    color: #e2e8f0 !important;
-    padding: 20px !important;
-    border-radius: 12px !important;
-    border: 1px solid rgba(0, 212, 255, 0.2);
-}
-
-.hljs {
-    background: rgba(15, 23, 42, 0.9) !important;
-    color: #e2e8f0 !important;
-}
-
-/* 响应式 */
+/* 响应式调整 */
 @media (max-width: 768px) {
     .share-id-display {
         font-size: 2.5rem;
-        letter-spacing: 6px;
     }
-    
-    .card {
-        margin: 10px;
+    .card-body {
+        padding: 20px;
     }
-}
-
-/* 下载按钮特殊样式 */
-#downloadBtn {
-    background: var(--gradient-primary);
-    font-size: 1.1rem;
-    padding: 15px 40px;
-    margin-top: 20px;
-}
-
-#downloadBtn:hover {
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 15px 40px rgba(0, 212, 255, 0.5);
-}
-
-/* 文本高亮 */
-.text-primary {
-    color: var(--accent-color) !important;
-}
-
-.text-muted {
-    color: rgba(226, 232, 240, 0.6) !important;
-}
-
-/* 警告框 */
-.alert {
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(0, 212, 255, 0.3);
-    border-radius: 12px;
-    color: #e2e8f0;
-}
-
-.alert-warning {
-    border-color: rgba(255, 193, 7, 0.3);
-    background: rgba(255, 193, 7, 0.1);
-}
-
-/* 文件信息列表 */
-.list-unstyled li {
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
-    transition: all 0.3s;
-}
-
-.list-unstyled li:hover {
-    padding-left: 10px;
-    border-bottom-color: rgba(0, 212, 255, 0.3);
-}
-
-.list-unstyled li:last-child {
-    border-bottom: none;
+    .shape {
+        opacity: 0.4;
+    }
 }

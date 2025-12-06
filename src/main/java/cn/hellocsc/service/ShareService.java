@@ -123,8 +123,8 @@ public class ShareService {
     // 生成 ID (改进版：6位数字字母组合)
     private String generateShareId() {
         // 去除容易混淆的字符 (0, O, 1, I)
-        String chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-        int length = 6;
+        String chars = "0123456789";
+        int length = 4;
         StringBuilder sb = new StringBuilder();
 
         // 尝试生成唯一ID，最多重试5次

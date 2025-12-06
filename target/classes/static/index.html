@@ -3,167 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlashShare - 简单文件分享</title>
+    <title>闪电传输</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            background-color: #f8f9fa;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .card {
-            border: none;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        .btn-primary {
-            background-color: #007bff;
-            border-color: #007bff;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-            border-color: #0056b3;
-        }
-        .btn-success {
-            background-color: #28a745;
-            border-color: #28a745;
-        }
-        .btn-success:hover {
-            background-color: #1e7e34;
-            border-color: #1e7e34;
-        }
-        .upload-area {
-            border: 2px dashed #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        .upload-area:hover {
-            border-color: #007bff;
-            background-color: #f0f7ff;
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-light.min.css">
+    <link rel="stylesheet" href="/css/style.css?v=3.0">
 </head>
 <body>
+
+<div class="background-animation">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+</div>
+
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-white text-center py-4">
-                    <h1 class="h3 fw-bold mb-0">
-                        <i class="fas fa-bolt me-2"></i>FlashShare
-                    </h1>
-                    <p class="text-muted mt-2">简单 · 快速 · 安全</p>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card border-0 mb-4 animate-fade-in-up">
+                <div class="card-header text-center border-0 pb-0 pt-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-white p-3 rounded-circle shadow-sm mb-3" style="width: 64px; height: 64px;">
+                        <i class="fas fa-bolt fa-2x text-primary"></i>
+                    </div>
+                    <h1 class="h3 fw-bold mb-1 text-dark">FlashShare</h1>
                 </div>
 
-                <div class="card-body p-5">
-                    <!-- 主要功能选项 -->
-                    <div class="mb-5">
-                        <h2 class="h5 text-center mb-4">选择操作</h2>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <button class="btn btn-primary w-100 py-3" onclick="showShareContent()">
-                                    <i class="fas fa-upload me-2"></i>分享内容
-                                </button>
-                            </div>
-                            <div class="col-md-6">
-                                <button class="btn btn-success w-100 py-3" onclick="showGetShare()">
-                                    <i class="fas fa-download me-2"></i>获取分享
-                                </button>
-                            </div>
+                <div class="card-body p-4 p-md-5">
+                    <div class="row g-3 mb-5 justify-content-center">
+                        <div class="col-6">
+                            <button class="btn btn-outline-primary w-100 py-3 active fw-bold border-2" onclick="showShareContent()" id="navShareBtn">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>我要分享
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-secondary w-100 py-3 fw-bold border-2" onclick="showGetShare()" id="navGetBtn">
+                                <i class="fas fa-search me-2"></i>我要接收
+                            </button>
                         </div>
                     </div>
 
-                    <!-- 分享内容区域 -->
-                    <div id="shareContentSection" class="mb-5">
-                        <h2 class="h5 mb-4">分享内容</h2>
-                        
-                        <!-- 分享类型切换 -->
-                        <ul class="nav nav-tabs mb-4" id="shareTypeTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="file-tab" data-bs-toggle="tab"
+                    <div id="shareContentSection" class="animate-fade-in">
+                        <ul class="nav nav-tabs mb-4 justify-content-center border-0" id="shareTypeTabs" role="tablist">
+                            <li class="nav-item me-2" role="presentation">
+                                <button class="nav-link active px-4" id="file-tab" data-bs-toggle="tab"
                                         data-bs-target="#file-share" type="button" role="tab">
-                                    <i class="fas fa-file me-2"></i>文件
+                                    <i class="fas fa-file-alt me-2"></i>上传文件
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="text-tab" data-bs-toggle="tab"
+                                <button class="nav-link px-4" id="text-tab" data-bs-toggle="tab"
                                         data-bs-target="#text-share" type="button" role="tab">
-                                    <i class="fas fa-font me-2"></i>文本
+                                    <i class="fas fa-pen-nib me-2"></i>粘贴文本
                                 </button>
                             </li>
                         </ul>
 
                         <div class="tab-content">
-                            <!-- 文件分享面板 -->
                             <div class="tab-pane fade show active" id="file-share" role="tabpanel">
-                                <div class="upload-area" id="dropZone">
-                                    <div class="text-center py-5">
-                                        <i class="fas fa-cloud-upload-alt fa-3x mb-4 text-primary"></i>
-                                        <h4 class="mb-3">拖放文件到此处或</h4>
-                                        <label for="fileInput" class="btn btn-primary" style="cursor: pointer;">
-                                            <i class="fas fa-folder-open me-2"></i>选择文件
-                                        </label>
-                                        <input type="file" id="fileInput" class="d-none" accept="*">
-                                        <p class="mt-3 text-muted">支持最大 500MB · 24小时后自动删除</p>
-                                    </div>
-
-                                    <div class="progress mt-4 d-none" id="uploadProgress">
-                                        <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                             role="progressbar" style="width: 0%">
-                                            <span class="progress-text">0%</span>
+                                <div class="upload-area p-5 mb-4 text-center" id="dropZone">
+                                    <div class="mb-3">
+                                        <div class="bg-white p-3 rounded-circle d-inline-block shadow-sm">
+                                            <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
                                         </div>
                                     </div>
+                                    <h5 class="fw-bold mb-2">点击或拖拽文件到这里</h5>
+                                    <p class="text-muted small mb-4">支持最大 500MB，24小时后自动销毁</p>
+
+                                    <label for="fileInput" class="btn btn-primary px-4 py-2 rounded-pill">
+                                        <i class="fas fa-folder-open me-2"></i>选择文件
+                                    </label>
+                                    <input type="file" id="fileInput" class="d-none">
 
                                     <div class="mt-4 d-none" id="fileInfo">
-                                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
-                                            <div>
-                                                <i class="fas fa-file me-2 text-primary"></i>
-                                                <span id="fileName" class="fw-bold">filename.txt</span>
+                                        <div class="alert alert-light border d-flex align-items-center justify-content-between shadow-sm">
+                                            <div class="d-flex align-items-center overflow-hidden">
+                                                <i class="fas fa-file-alt fa-2x text-primary me-3"></i>
+                                                <div class="text-start text-truncate">
+                                                    <div class="fw-bold text-dark" id="fileName">filename.txt</div>
+                                                    <div class="text-muted small" id="fileSize">0 KB</div>
+                                                </div>
                                             </div>
-                                            <span id="fileSize" class="text-muted">0 KB</span>
+                                            <i class="fas fa-check-circle text-success fs-4"></i>
+                                        </div>
+                                    </div>
+
+                                    <div class="progress mt-3 d-none" id="uploadProgress" style="height: 6px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-end small text-muted mt-1 d-none progress-text">0%</div>
+                                </div>
+
+                                <button type="button" class="btn btn-primary w-100 py-3 shadow-lg" id="shareFileBtn" disabled>
+                                    <i class="fas fa-paper-plane me-2"></i>立即创建分享
+                                </button>
+                            </div>
+
+                            <div class="tab-pane fade" id="text-share" role="tabpanel">
+                                <div class="mb-3">
+                                    <textarea class="form-control font-monospace" id="textContent" rows="8"
+                                              placeholder="在此粘贴代码或文本内容..."></textarea>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <small class="text-muted">已输入 <span id="charCount">0</span> 字符</small>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="richTextToggle">
+                                            <label class="form-check-label small" for="richTextToggle">启用代码高亮/Markdown</label>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="mt-4">
-                                    <button type="button" class="btn btn-success w-100 py-3" id="shareFileBtn" disabled>
-                                        <i class="fas fa-share-alt me-2"></i>创建分享
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- 文本分享面板 -->
-                            <div class="tab-pane fade" id="text-share" role="tabpanel">
-                                <div class="mb-4">
-                                    <textarea class="form-control" id="textContent" rows="8"
-                                              placeholder="输入要分享的文本内容"></textarea>
-                                </div>
-
-                                <div class="mb-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="richTextToggle">
-                                        <label class="form-check-label" for="richTextToggle">
-                                            <i class="fas fa-code me-1"></i>富文本格式
-                                        </label>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="previewToggle">
+                                        <label class="form-check-label small" for="previewToggle">实时预览</label>
+                                    </div>
+                                    <div id="previewPanel" class="d-none border rounded p-3 bg-light">
+                                        <div id="previewContent"></div>
                                     </div>
                                 </div>
 
-                                <button type="button" class="btn btn-success w-100 py-3" id="shareTextBtn">
-                                    <i class="fas fa-share-alt me-2"></i>创建分享
+                                <button type="button" class="btn btn-primary w-100 py-3 shadow-lg" id="shareTextBtn">
+                                    <i class="fas fa-paper-plane me-2"></i>立即创建分享
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 获取分享区域 -->
-                    <div id="getShareSection" class="d-none">
-                        <h2 class="h5 mb-4">获取分享</h2>
-                        <div class="input-group mb-4">
-                            <input type="text" class="form-control" id="shareIdInput" placeholder="输入分享ID">
-                            <button class="btn btn-primary" id="getShareBtn">
-                                <i class="fas fa-arrow-right me-1"></i>访问
-                            </button>
+                    <div id="getShareSection" class="d-none animate-fade-in text-center py-4">
+                        <div class="bg-light p-5 rounded-4 mb-4 border border-dashed">
+                            <i class="fas fa-search-location fa-4x text-muted mb-4 opacity-50"></i>
+                            <h4 class="mb-4 fw-bold">请输入 4-6 位分享码</h4>
+                            <div class="row justify-content-center">
+                                <div class="col-md-8">
+                                    <div class="input-group input-group-lg shadow-sm">
+                                        <input type="text" class="form-control border-0" id="shareIdInput"
+                                               placeholder="例如: A1B2C3"
+                                               style="text-transform: uppercase; letter-spacing: 2px; text-align: center;">
+                                        <button class="btn btn-primary px-4" id="getShareBtn">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-muted small mt-3">如果不区分大小写，我们将自动转换</p>
                         </div>
                     </div>
                 </div>
@@ -173,22 +155,38 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/utils.js?v=1.0"></script>
-<script src="/js/upload.js?v=2.0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="/js/utils.js?v=3.0"></script>
+<script src="/js/upload.js?v=3.0"></script>
+<script src="/js/main.js?v=3.0"></script>
 <script>
-    // 显示分享内容区域
+    // 简单的Tab切换逻辑优化
     function showShareContent() {
         document.getElementById('shareContentSection').classList.remove('d-none');
         document.getElementById('getShareSection').classList.add('d-none');
+
+        document.getElementById('navShareBtn').classList.add('btn-outline-primary', 'active');
+        document.getElementById('navShareBtn').classList.remove('btn-outline-secondary');
+
+        document.getElementById('navGetBtn').classList.add('btn-outline-secondary');
+        document.getElementById('navGetBtn').classList.remove('btn-outline-primary', 'active');
     }
 
-    // 显示获取分享区域
     function showGetShare() {
         document.getElementById('shareContentSection').classList.add('d-none');
         document.getElementById('getShareSection').classList.remove('d-none');
+
+        document.getElementById('navGetBtn').classList.add('btn-outline-primary', 'active');
+        document.getElementById('navGetBtn').classList.remove('btn-outline-secondary');
+
+        document.getElementById('navShareBtn').classList.add('btn-outline-secondary');
+        document.getElementById('navShareBtn').classList.remove('btn-outline-primary', 'active');
+
+        // 自动聚焦
+        setTimeout(() => document.getElementById('shareIdInput').focus(), 100);
     }
 
-    // 获取分享按钮点击事件
     document.getElementById('getShareBtn').addEventListener('click', function() {
         const shareId = document.getElementById('shareIdInput').value.trim();
         if (shareId) {
@@ -196,11 +194,8 @@
         }
     });
 
-    // 回车键触发获取分享
     document.getElementById('shareIdInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            document.getElementById('getShareBtn').click();
-        }
+        if (e.key === 'Enter') document.getElementById('getShareBtn').click();
     });
 </script>
 </body>
