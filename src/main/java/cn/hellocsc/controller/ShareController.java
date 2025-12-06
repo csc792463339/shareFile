@@ -1,6 +1,5 @@
 package cn.hellocsc.controller;
 
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import cn.hellocsc.model.ShareContent;
@@ -11,10 +10,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
 
 @Slf4j
@@ -32,7 +36,7 @@ public class ShareController {
         return Map.of(
                 "shareId", saved.getShareId(),
                 "url", "/view.html?id=" + saved.getShareId(),
-                "expiresIn", 86400 // 24小时
+                "expiresIn", 86400
         );
     }
 
@@ -49,25 +53,23 @@ public class ShareController {
         return Map.of(
                 "shareId", saved.getShareId(),
                 "url", "/view.html?id=" + saved.getShareId(),
-                "expiresIn", 86400 // 24小时
+                "expiresIn", 86400
         );
     }
 
     // 获取分享内容
     @GetMapping
-    public ShareContent getShareContent(
-            @RequestParam String shareId) {
-        return shareService.getShareContent(shareId);
-    }
-    
-    // 获取分享内容（兼容旧路径格式）
-    @GetMapping("/{shareId}")
-    public ShareContent getShareContentByPath(
-            @PathVariable String shareId) {
+    public ShareContent getShareContent(@RequestParam String shareId) {
         return shareService.getShareContent(shareId);
     }
 
-    // 下载文件
+    // 获取分享内容（兼容旧路径格式）
+    @GetMapping("/{shareId}")
+    public ShareContent getShareContentByPath(@PathVariable String shareId) {
+        return shareService.getShareContent(shareId);
+    }
+
+    // 下载文件 (优化版：零拷贝)
     @GetMapping("/download")
     public void downloadFile(
             @RequestParam String shareId,
@@ -80,92 +82,75 @@ public class ShareController {
         }
 
         Path filePath = shareService.getFileForDownload(share);
-        response.setContentType(share.getContentType() != null ? share.getContentType() : "application/octet-stream");
-        
-        // 获取文件名
-        String fileName = share.getFileName();
-        
-        try {
-            // 添加Content-Length头，让客户端知道文件大小
-            long fileSize = Files.size(filePath);
-            response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileSize));
-            
-            // 确保响应没有缓存问题
-            response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-            response.setHeader("Pragma", "no-cache");
-            response.setHeader("Expires", "0");
-            
-            // 使用Spring的ContentDisposition构建正确的响应头，支持中文文件名
-            ContentDisposition contentDisposition = ContentDisposition.builder("attachment")
-                    .filename(fileName, StandardCharsets.UTF_8)
-                    .build();
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString());
 
-            // 记录下载日志
-            log.info("开始下载文件 - ID: {}, 文件名: {}, 路径: {}, 大小: {}", shareId, fileName, filePath, fileSize);
-            
-            // 使用高效的方式复制文件，Files.copy会处理好所有IO细节，包括缓冲区管理
-            // 不使用try-with-resources关闭outputStream，由Servlet容器负责关闭
-            Files.copy(filePath, response.getOutputStream());
-            
-            // 记录下载成功日志
-            log.info("文件下载成功 - ID: {}, 文件名: {}", shareId, fileName);
-        } catch (IOException e) {
-            // 检查是否是客户端中断异常
-            boolean isClientDisconnect = false;
-            
-            // 检查异常类型和消息
-            if (e instanceof java.nio.channels.ClosedChannelException ||
-                e instanceof org.springframework.web.context.request.async.AsyncRequestNotUsableException) {
-                isClientDisconnect = true;
-            } else if (e.getMessage() != null) {
-                isClientDisconnect = e.getMessage().contains("Broken pipe") || 
-                                     e.getMessage().contains("Connection reset by peer") ||
-                                     e.getMessage().contains("ClientAbortException") ||
-                                     e.getMessage().contains("failed to write") ||
-                                     e.getMessage().contains("ClosedChannelException");
-            }
-            
-            // 检查嵌套异常
-            if (!isClientDisconnect && e.getCause() != null && e.getCause() instanceof IOException) {
-                IOException cause = (IOException) e.getCause();
-                isClientDisconnect = cause instanceof java.nio.channels.ClosedChannelException || 
-                                    (cause.getMessage() != null && 
-                                     (cause.getMessage().contains("Broken pipe") ||
-                                      cause.getMessage().contains("Connection reset by peer") ||
-                                      cause.getMessage().contains("ClientAbortException") ||
-                                      cause.getMessage().contains("failed to write") ||
-                                      cause.getMessage().contains("ClosedChannelException")));
-            }
-            
-            if (isClientDisconnect) {
-                // 客户端主动中断连接，这是正常情况，仅记录 INFO 日志
-                log.info("文件下载中断（客户端断开连接） - ID: {}, 文件名: {}", shareId, fileName);
-            } else {
-                // 真正的 IO 错误，记录错误日志
-                log.error("文件下载失败 - ID: {}, 错误: {}", shareId, e.getMessage(), e);
-                // 如果响应尚未提交，返回 500 错误
-                if (!response.isCommitted()) {
-                    try {
-                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "文件下载失败: " + e.getMessage());
-                    } catch (IOException ex) {
-                        // 记录发送错误响应失败的日志
-                        log.error("发送错误响应失败 - ID: {}, 错误: {}", shareId, ex.getMessage(), ex);
-                    }
+        // 1. 设置 Content-Type
+        String contentType = share.getContentType() != null ? share.getContentType() : "application/octet-stream";
+        response.setContentType(contentType);
+
+        String fileName = share.getFileName();
+        long fileSize = Files.size(filePath);
+
+        // 2. 设置响应头
+        response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileSize));
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setHeader("Expires", "0");
+
+        ContentDisposition contentDisposition = ContentDisposition.builder("attachment")
+                .filename(fileName, StandardCharsets.UTF_8)
+                .build();
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString());
+
+        log.info("开始下载文件 (Zero-Copy) - ID: {}, 文件名: {}, 大小: {}", shareId, fileName, fileSize);
+
+        // 3. 执行零拷贝下载 (Zero-Copy Transfer)
+        // 使用 FileChannel.transferTo 直接将文件数据传输到 Socket Channel
+        // 这避免了将数据读入用户态内存（Java Heap），极大降低 CPU 占用并提升速度
+        try (FileChannel fileChannel = FileChannel.open(filePath, StandardOpenOption.READ);
+             WritableByteChannel outputChannel = Channels.newChannel(response.getOutputStream())) {
+
+            // 循环传输，防止大文件一次传输不完 (transferTo 在某些系统有 2GB 限制)
+            long position = 0;
+            long count = fileSize;
+            while (position < count) {
+                long transferred = fileChannel.transferTo(position, count - position, outputChannel);
+                if (transferred == 0) {
+                    break; // 防止死循环
                 }
+                position += transferred;
             }
-        } catch (Exception e) {
-            // 记录其他错误日志
-            log.error("下载过程中发生意外错误 - ID: {}, 错误: {}", shareId, e.getMessage(), e);
-            // 如果响应尚未提交，返回 500 错误
+
+            log.info("文件下载成功 - ID: {}", shareId);
+
+        } catch (IOException e) {
+            handleDownloadError(shareId, fileName, response, e);
+        }
+    }
+
+    // 错误处理逻辑提取
+    private void handleDownloadError(String shareId, String fileName, HttpServletResponse response, IOException e) {
+        boolean isClientDisconnect = isClientDisconnect(e);
+
+        if (isClientDisconnect) {
+            log.info("下载中断（客户端断开） - ID: {}", shareId);
+        } else {
+            log.error("下载失败 - ID: {}, 错误: {}", shareId, e.getMessage());
             if (!response.isCommitted()) {
                 try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "下载过程中发生意外错误: " + e.getMessage());
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "下载失败");
                 } catch (IOException ex) {
-                    // 记录发送错误响应失败的日志
-                    log.error("发送错误响应失败 - ID: {}, 错误: {}", shareId, ex.getMessage(), ex);
+                    // ignore
                 }
             }
         }
+    }
+
+    private boolean isClientDisconnect(Exception e) {
+        String msg = e.getMessage();
+        if (msg == null) return false;
+        return e instanceof java.nio.channels.ClosedChannelException ||
+                msg.contains("Broken pipe") ||
+                msg.contains("Connection reset") ||
+                msg.contains("ClientAbortException");
     }
 }
