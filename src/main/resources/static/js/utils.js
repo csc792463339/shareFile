@@ -2,7 +2,7 @@
 class Utils {
     // 生成唯一ID
     static uuid() {
-        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
             (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
         );
     }
@@ -27,13 +27,15 @@ class Utils {
         });
     }
 
-    // 复制到剪贴板
+    // 复制到剪贴板 (修复版：增加兼容性支持)
     static copyToClipboard(text, element) {
-        navigator.clipboard.writeText(text).then(() => {
+        // 成功后的UI回调
+        const handleSuccess = () => {
             const originalHTML = element.innerHTML;
             element.innerHTML = '<i class="fas fa-check me-1"></i>已复制!';
             element.classList.add('btn-success');
             element.classList.remove('btn-primary', 'btn-outline-primary');
+            element.disabled = true;
 
             setTimeout(() => {
                 element.innerHTML = originalHTML;
@@ -42,11 +44,57 @@ class Utils {
                 if (originalHTML.includes('outline')) {
                     element.classList.add('btn-outline-primary');
                 }
+                element.disabled = false;
             }, 2000);
-        }).catch(err => {
+        };
+
+        // 失败后的回调
+        const handleError = (err) => {
             console.error('复制失败:', err);
-            alert('复制失败，请手动复制');
-        });
+            // 最后的兜底：提示用户手动复制
+            window.prompt("复制失败，请手动复制以下内容:", text);
+        };
+
+        // 优先使用现代 API (需要 HTTPS 或 localhost)
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(handleSuccess).catch(() => {
+                // 如果权限被拒绝，尝试回退方案
+                this.fallbackCopyTextToClipboard(text, handleSuccess, handleError);
+            });
+        } else {
+            // HTTP 环境使用回退方案 (execCommand)
+            this.fallbackCopyTextToClipboard(text, handleSuccess, handleError);
+        }
+    }
+
+    // 兼容性复制方案 (用于 HTTP 环境)
+    static fallbackCopyTextToClipboard(text, onSuccess, onError) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+
+        // 避免回流和弹窗，将元素隐藏
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        textArea.style.pointerEvents = "none";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (successful) {
+                onSuccess();
+            } else {
+                onError(new Error('execCommand returned false'));
+            }
+        } catch (err) {
+            document.body.removeChild(textArea);
+            onError(err);
+        }
     }
 
     // 生成随机分享ID (4位数字)
@@ -56,13 +104,9 @@ class Utils {
 
     // 检测文本类型
     static detectTextType(content) {
-        // 检测JSON
         if (this.isJSON(content)) return 'json';
-        // 检测HTML
         if (/<\/?[a-z][\s\S]*>/i.test(content)) return 'html';
-        // 检测XML
         if (/^<\?xml/.test(content)) return 'xml';
-        // 检测Markdown
         if (/# |\*|\_|\[.*\]\(.*\)/.test(content)) return 'markdown';
         return 'text';
     }
@@ -80,7 +124,7 @@ class Utils {
     // 节流函数
     static throttle(func, limit) {
         let inThrottle;
-        return function() {
+        return function () {
             const context = this, args = arguments;
             if (!inThrottle) {
                 func.apply(context, args);
@@ -93,7 +137,7 @@ class Utils {
     // 防抖函数
     static debounce(func, delay) {
         let debounceTimer;
-        return function() {
+        return function () {
             const context = this, args = arguments;
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => func.apply(context, args), delay);
@@ -236,23 +280,22 @@ function copyToClipboard(text, buttonElement) {
 window.Utils = Utils;
 
 // 初始化工具函数
-document.addEventListener('DOMContentLoaded', function() {
-    // 全局错误处理
-    window.onerror = function(message, source, lineno, colno, error) {
-        console.error('全局错误:', { message, source, lineno, colno, error });
-        Utils.showNotification('系统发生错误，请刷新页面重试', 'danger');
+document.addEventListener('DOMContentLoaded', function () {
+    window.onerror = function (message, source, lineno, colno, error) {
+        console.error('全局错误:', {message, source, lineno, colno, error});
+        // 避免报错弹窗过于频繁，可选择性开启
+        // Utils.showNotification('系统发生错误，请刷新页面重试', 'danger');
         return true;
     };
 
-    // 全局未捕获的Promise错误
-    window.onunhandledrejection = function(event) {
+    window.onunhandledrejection = function (event) {
         console.error('未捕获的Promise错误:', event.reason);
-        Utils.showNotification('操作失败，请重试', 'warning');
+        // Utils.showNotification('操作失败，请重试', 'warning');
         event.preventDefault();
     };
 });
 
-// 通用HTTP请求函数
+// API 类
 class API {
     static async request(url, options = {}) {
         const defaultOptions = {
@@ -274,18 +317,13 @@ class API {
 
         try {
             const response = await fetch(url, config);
-
-            // 检查HTTP状态
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || `请求失败: ${response.status}`);
             }
-
-            // 不需要JSON响应的情况
             if (config.headers['Content-Type'] === 'application/octet-stream') {
                 return response;
             }
-
             return await response.json();
         } catch (error) {
             console.error('API请求失败:', error);
@@ -296,7 +334,7 @@ class API {
     static get(url, params = {}) {
         const queryString = new URLSearchParams(params).toString();
         const fullUrl = queryString ? `${url}?${queryString}` : url;
-        return this.request(fullUrl, { method: 'GET' });
+        return this.request(fullUrl, {method: 'GET'});
     }
 
     static post(url, data) {
@@ -309,16 +347,14 @@ class API {
     static upload(url, formData, onProgress = null) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-
-            xhr.upload.onprogress = function(event) {
+            xhr.upload.onprogress = function (event) {
                 if (event.lengthComputable && onProgress) {
                     const percent = (event.loaded / event.total) * 100;
-                    const speed = event.loaded / ((Date.now() - startTime) / 1000) / 1024; // KB/s
+                    const speed = event.loaded / ((Date.now() - startTime) / 1000) / 1024;
                     onProgress(percent, speed);
                 }
             };
-
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         resolve(JSON.parse(xhr.responseText));
@@ -329,15 +365,12 @@ class API {
                     reject(new Error(`上传失败: ${xhr.status}`));
                 }
             };
-
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 reject(new Error('网络错误'));
             };
-
-            xhr.onabort = function() {
+            xhr.onabort = function () {
                 reject(new Error('上传已取消'));
             };
-
             const startTime = Date.now();
             xhr.open('POST', url, true);
             xhr.send(formData);
@@ -350,7 +383,6 @@ class API {
             'X-CSRF-TOKEN': this.getCsrfToken(),
             ...(options.headers || {})
         };
-        
         return this.request(url, {
             method: 'DELETE',
             body: Object.keys(data).length > 0 ? JSON.stringify(data) : undefined,
@@ -364,5 +396,4 @@ class API {
     }
 }
 
-// 暴露API类
 window.API = API;

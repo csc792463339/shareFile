@@ -1,6 +1,5 @@
 package cn.hellocsc.storage;
 
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import cn.hellocsc.model.ShareContent;
@@ -14,7 +13,7 @@ public class MemoryTextStorage {
     // 使用Caffeine缓存，24小时过期
     private final Cache<String, ShareContent> textCache = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofHours(24))
-            .maximumSize(1000)
+            .maximumSize(5000) // 增加最大容量
             .build();
 
     public void save(ShareContent content) {
@@ -27,5 +26,10 @@ public class MemoryTextStorage {
 
     public void invalidate(String shareId) {
         textCache.invalidate(shareId);
+    }
+
+    // 显式触发清理
+    public void cleanUp() {
+        textCache.cleanUp();
     }
 }
