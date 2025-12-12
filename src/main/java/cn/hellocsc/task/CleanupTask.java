@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 public class CleanupTask {
 
     private final ShareService shareService;
-    private final MemoryTextStorage memoryTextStorage;
 
     // 每5分钟执行一次清理
     @Scheduled(fixedRate = 300000)
