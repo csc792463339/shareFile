@@ -42,6 +42,42 @@ function formatFileSize(bytes) {
     );
 }
 
+// 格式化网络速度
+function formatSpeed(bytesPerSecond) {
+    if (bytesPerSecond === 0) return '0 B/s';
+    const k = 1024;
+    const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
+    return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// 格式化剩余时间
+function formatTime(seconds) {
+    if (!seconds || seconds === Infinity || isNaN(seconds) || seconds <= 0) return '--';
+
+    if (seconds < 10) {
+        return '即将完成';
+    } else if (seconds < 60) {
+        return Math.ceil(seconds) + '秒';
+    } else if (seconds < 3600) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        if (remainingSeconds < 30) {
+            return minutes + '分钟';
+        } else {
+            return minutes + '分' + remainingSeconds + '秒';
+        }
+    } else {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (minutes === 0) {
+            return hours + '小时';
+        } else {
+            return hours + '小时' + minutes + '分钟';
+        }
+    }
+}
+
 // HTML 转义的安全方法
 function escapeHtml(text) {
     return safeUtils(
@@ -185,16 +221,22 @@ function uploadFile() {
     if (uploadInProgress) return;
 
     const shareFileBtn = document.getElementById('shareFileBtn');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const progressBar = uploadProgress?.querySelector('.progress-bar');
-    const progressText = uploadProgress?.querySelector('.progress-text');
+    const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const uploadSpeed = document.getElementById('uploadSpeed');
+    const remainingTime = document.getElementById('remainingTime');
 
     uploadInProgress = true;
     if (shareFileBtn) {
         shareFileBtn.disabled = true;
         shareFileBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>上传中...';
     }
-    if (uploadProgress) uploadProgress.classList.remove('d-none');
+
+    // 显示进度容器
+    if (uploadProgressContainer) {
+        uploadProgressContainer.classList.remove('d-none');
+    }
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -202,15 +244,68 @@ function uploadFile() {
 
     const xhr = new XMLHttpRequest();
 
+    // 用于计算网络速度和剩余时间的变量
+    let uploadStartTime = Date.now();
+    let lastTime = uploadStartTime;
+    let lastLoaded = 0;
+    const speedHistory = []; // 存储最近几次的速度，用于平滑显示
+    const maxHistoryLength = 5;
+
     xhr.upload.onprogress = function(e) {
         if (e.lengthComputable) {
             const percent = (e.loaded / e.total) * 100;
+            const currentTime = Date.now();
+
+            // 更新进度条
             if (progressBar) {
                 progressBar.style.width = percent + '%';
                 progressBar.setAttribute('aria-valuenow', percent);
             }
-            if (progressText) {
-                progressText.textContent = Math.round(percent) + '%';
+
+            // 更新百分比
+            if (progressPercentage) {
+                progressPercentage.textContent = Math.round(percent) + '%';
+            }
+
+            // 计算网络速度和剩余时间
+            const timeDiff = currentTime - lastTime;
+            const loadedDiff = e.loaded - lastLoaded;
+
+            if (timeDiff > 300 && loadedDiff > 0) { // 每300ms更新一次，更及时
+                // 计算当前瞬时速度 (字节/秒)
+                const instantSpeed = loadedDiff / (timeDiff / 1000);
+
+                // 将速度添加到历史记录中
+                speedHistory.push(instantSpeed);
+                if (speedHistory.length > maxHistoryLength) {
+                    speedHistory.shift();
+                }
+
+                // 计算平均速度，使显示更平滑
+                const avgSpeed = speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length;
+
+                // 计算总体平均速度
+                const totalElapsed = (currentTime - uploadStartTime) / 1000;
+                const overallSpeed = e.loaded / totalElapsed;
+
+                // 使用平均速度计算剩余时间
+                const remainingBytes = e.total - e.loaded;
+                const remainingSeconds = overallSpeed > 0 ? remainingBytes / overallSpeed : 0;
+
+                // 格式化显示
+                const speedText = formatSpeed(avgSpeed);
+                const timeText = formatTime(remainingSeconds);
+
+                // 更新显示
+                if (uploadSpeed) {
+                    uploadSpeed.textContent = speedText;
+                }
+                if (remainingTime) {
+                    remainingTime.textContent = '剩余 ' + timeText;
+                }
+
+                lastTime = currentTime;
+                lastLoaded = e.loaded;
             }
         }
     };
@@ -261,17 +356,34 @@ function resetUploadState() {
     const shareFileBtn = document.getElementById('shareFileBtn');
     if (shareFileBtn) {
         shareFileBtn.disabled = false;
-        shareFileBtn.innerHTML = '<i class="fas fa-share-alt me-2"></i>创建分享';
+        shareFileBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>立即创建分享';
     }
 
-    const uploadProgress = document.getElementById('uploadProgress');
-    if (uploadProgress) {
-        uploadProgress.classList.add('d-none');
-        const progressBar = uploadProgress.querySelector('.progress-bar');
-        if (progressBar) {
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', '0');
-        }
+    const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const uploadSpeed = document.getElementById('uploadSpeed');
+    const remainingTime = document.getElementById('remainingTime');
+
+    if (uploadProgressContainer) {
+        uploadProgressContainer.classList.add('d-none');
+    }
+
+    if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.setAttribute('aria-valuenow', '0');
+    }
+
+    if (progressPercentage) {
+        progressPercentage.textContent = '0%';
+    }
+
+    if (uploadSpeed) {
+        uploadSpeed.textContent = '准备上传...';
+    }
+
+    if (remainingTime) {
+        remainingTime.textContent = '--';
     }
 }
 
