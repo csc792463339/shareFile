@@ -30,10 +30,11 @@ public class FileStorageService {
         String uniqueName = UUID.randomUUID() + extension;
 
         // 获取绝对路径
-        Path filePath = Paths.get(storagePath, uniqueName).toAbsolutePath().normalize();
+        Path storageDir = Paths.get(storagePath).toAbsolutePath().normalize();
+        Path filePath = storageDir.resolve(uniqueName);
 
         // 确保存储目录存在
-        Files.createDirectories(filePath.getParent());
+        Files.createDirectories(storageDir);
 
         // --- 修复点开始 ---
         // 1. 先获取所有元数据！(因为 transferTo 可能会移动文件导致源文件丢失)
@@ -49,13 +50,20 @@ public class FileStorageService {
         share.setFileName(originalName);
         share.setContentType(contentType);
         share.setSize(fileSize); // 使用之前保存的变量，而不是 file.getSize()
-        share.setFilePath(filePath.toString());
+        // 存储相对于存储根目录的路径，便于跨环境使用
+        share.setFilePath(uniqueName);
 
         return share;
     }
 
-    public Path getFile(String filePath) {
-        return Paths.get(filePath);
+    public Path getFile(String fileName) {
+        // 如果是绝对路径，直接使用（兼容旧数据）
+        Path path = Paths.get(fileName);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        // 否则，从存储根目录解析
+        return Paths.get(storagePath).toAbsolutePath().normalize().resolve(fileName);
     }
 
     /**

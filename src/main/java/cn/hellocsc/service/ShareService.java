@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import cn.hellocsc.exception.ShareNotFoundException;
 import cn.hellocsc.model.ShareContent;
-import cn.hellocsc.storage.MemoryTextStorage;
+import cn.hellocsc.storage.PersistentTextStorage;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class ShareService {
 
-    private final MemoryTextStorage memoryTextStorage;
+    private final PersistentTextStorage persistentTextStorage;
     private final FileStorageService fileStorageService;
 
     public ShareContent createTextShare(ShareContent request) {
@@ -34,7 +34,7 @@ public class ShareService {
         request.setCreateTime(LocalDateTime.now());
         request.setViewCount(0);
 
-        memoryTextStorage.save(request);
+        persistentTextStorage.save(request);
 
         log.info("创建文本分享成功 - ID: {}, 大小: {} 字符", shareId, request.getTextContent().length());
         return request;
@@ -53,7 +53,7 @@ public class ShareService {
         share.setRichText(request.isRichText());
 
         ShareContent savedShare = fileStorageService.saveFile(file, share);
-        memoryTextStorage.save(savedShare);
+        persistentTextStorage.save(savedShare);
 
         log.info("创建文件分享成功 - ID: {}, 文件名: {}, 大小: {} 字节",
                 savedShare.getShareId(), savedShare.getFileName(), savedShare.getSize());
@@ -62,7 +62,7 @@ public class ShareService {
     }
 
     public ShareContent getShareContent(String shareId) {
-        Optional<ShareContent> shareOpt = memoryTextStorage.get(shareId);
+        Optional<ShareContent> shareOpt = persistentTextStorage.get(shareId);
 
         if (shareOpt.isPresent()) {
             ShareContent share = shareOpt.get();
@@ -74,12 +74,12 @@ public class ShareService {
             if (share.isFile() && share.getFilePath() != null) {
                 Path filePath = fileStorageService.getFile(share.getFilePath());
                 if (!Files.exists(filePath)) {
-                    memoryTextStorage.invalidate(shareId);
+                    persistentTextStorage.invalidate(shareId);
                     throw new ShareNotFoundException("文件不存在或已被删除");
                 }
             }
 
-            memoryTextStorage.save(share);
+            persistentTextStorage.save(share);
             return share;
         }
 
@@ -104,8 +104,8 @@ public class ShareService {
         // 1. 清理磁盘上的物理文件 (保留24小时内的文件)
         int cleanedFiles = fileStorageService.deleteExpiredFiles(24);
 
-        // 2. 触发 Caffeine 缓存的清理
-        memoryTextStorage.cleanUp();
+        // 2. 触发缓存的清理
+        persistentTextStorage.cleanUp();
 
         if (cleanedFiles > 0) {
             log.info("执行清理任务：物理删除了 {} 个过期文件", cleanedFiles);
@@ -135,7 +135,7 @@ public class ShareService {
                 sb.append(chars.charAt(index));
             }
             String id = sb.toString();
-            if (!memoryTextStorage.get(id).isPresent()) {
+            if (!persistentTextStorage.get(id).isPresent()) {
                 return id;
             }
         }

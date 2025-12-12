@@ -1,5 +1,6 @@
 package cn.hellocsc.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -16,7 +17,10 @@ public class ShareContent {
     private LocalDateTime createTime; // 创建时间
     private int viewCount;           // 查看次数
 
+    // 文件存储路径 - 持久化时需要保存
+    private String filePath; // 服务器文件路径
+
     // 仅内存存储使用
-    private transient String filePath; // 服务器文件路径
+    @JsonIgnore
     private transient byte[] fileBytes; // 小文件内容 (内存存储)
 }
