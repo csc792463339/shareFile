@@ -149,10 +149,29 @@ function renderShareContent(data) {
 function downloadFile(shareId, fileName) {
     return new Promise((resolve, reject) => {
         downloadInProgress = true;
+
+        // UI 元素
         const downloadBtn = document.getElementById('downloadBtn');
+        const downloadProgress = document.getElementById('downloadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const downloadPercent = document.getElementById('downloadPercent');
+        const downloadSpeed = document.getElementById('downloadSpeed');
+        const downloadedSize = document.getElementById('downloadedSize');
+        const estimatedTime = document.getElementById('estimatedTime');
+
         const originalBtnHTML = downloadBtn.innerHTML;
+
+        // 初始化UI
         downloadBtn.disabled = true;
-        downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>下载中...';
+        downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>准备下载...';
+        downloadProgress.classList.remove('d-none');
+
+        // 进度跟踪变量
+        let startTime = Date.now();
+        let totalSize = 0;
+        let loadedSize = 0;
+        let lastTime = startTime;
+        let lastLoaded = 0;
 
         const url = `/api/share/download?shareId=${shareId}`;
         const xhr = new XMLHttpRequest();
@@ -160,9 +179,57 @@ function downloadFile(shareId, fileName) {
         xhr.open('GET', url, true);
         xhr.responseType = 'blob';
 
+        // 进度事件
+        xhr.onprogress = function(event) {
+            if (event.lengthComputable && progressBar && downloadPercent && downloadSpeed && downloadedSize && estimatedTime) {
+                totalSize = event.total;
+                loadedSize = event.loaded;
+
+                // 计算百分比
+                const percent = Math.round((loadedSize / totalSize) * 100);
+
+                // 更新进度条
+                progressBar.style.width = percent + '%';
+                downloadPercent.textContent = percent + '%';
+
+                // 计算下载速度
+                const currentTime = Date.now();
+                const timeDiff = (currentTime - lastTime) / 1000; // 秒
+                const sizeDiff = loadedSize - lastLoaded;
+
+                if (timeDiff > 0.5 && sizeDiff > 0) { // 每0.5秒更新一次速度
+                    const speed = sizeDiff / timeDiff; // bytes/s
+                    downloadSpeed.textContent = formatSpeed(speed);
+
+                    // 计算预计剩余时间
+                    const remainingSize = totalSize - loadedSize;
+                    if (speed > 0) {
+                        const estimatedSeconds = Math.round(remainingSize / speed);
+                        estimatedTime.textContent = '预计剩余时间: ' + formatTime(estimatedSeconds);
+                    }
+
+                    lastTime = currentTime;
+                    lastLoaded = loadedSize;
+                }
+
+                // 更新已下载大小
+                downloadedSize.textContent = `${Utils.formatFileSize(loadedSize)} / ${Utils.formatFileSize(totalSize)}`;
+
+                // 更新按钮文本
+                downloadBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span>下载中 ${percent}%`;
+            }
+        };
+
         xhr.onload = function() {
             if (xhr.status === 200) {
-                // 直接使用前端获取到的文件名，避免从响应头解析导致的问题
+                // 下载完成，更新UI
+                progressBar.style.width = '100%';
+                downloadPercent.textContent = '100%';
+                downloadBtn.innerHTML = '<i class="fas fa-check me-2"></i>下载完成';
+                downloadSpeed.textContent = '下载完成';
+                estimatedTime.textContent = '已完成';
+
+                // 直接使用前端获取到的文件名
                 const filename = fileName || 'download';
 
                 // 创建下载链接
@@ -180,27 +247,72 @@ function downloadFile(shareId, fileName) {
                     window.URL.revokeObjectURL(downloadUrl);
                 }, 100);
 
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = originalBtnHTML;
-                downloadInProgress = false;
-                resolve();
+                // 3秒后重置UI
+                setTimeout(() => {
+                    resetDownloadUI();
+                    resolve();
+                }, 3000);
             } else {
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = originalBtnHTML;
-                downloadInProgress = false;
+                resetDownloadUI();
                 reject(new Error(`下载失败: HTTP ${xhr.status}`));
             }
         };
 
         xhr.onerror = function() {
-            downloadBtn.disabled = false;
-            downloadBtn.innerHTML = originalBtnHTML;
-            downloadInProgress = false;
+            resetDownloadUI();
             reject(new Error('网络错误'));
         };
 
+        // 重置下载UI的函数
+        function resetDownloadUI() {
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = originalBtnHTML;
+            downloadProgress.classList.add('d-none');
+            progressBar.style.width = '0%';
+            downloadPercent.textContent = '0%';
+            downloadSpeed.textContent = '0 KB/s';
+            downloadedSize.textContent = '0 MB / 0 MB';
+            estimatedTime.textContent = '预计剩余时间: --';
+            downloadInProgress = false;
+        }
+
         xhr.send();
     });
+}
+
+// 格式化速度显示
+function formatSpeed(bytesPerSecond) {
+    if (bytesPerSecond === 0) return '0 KB/s';
+
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    let unitIndex = 0;
+    let speed = bytesPerSecond;
+
+    while (speed >= 1024 && unitIndex < units.length - 1) {
+        speed /= 1024;
+        unitIndex++;
+    }
+
+    return speed.toFixed(1) + ' ' + units[unitIndex];
+}
+
+// 格式化时间显示
+function formatTime(seconds) {
+    if (!seconds || seconds === Infinity || isNaN(seconds)) {
+        return '--';
+    }
+
+    if (seconds < 60) {
+        return `${seconds}秒`;
+    } else if (seconds < 3600) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}分${remainingSeconds}秒`;
+    } else {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}小时${minutes}分钟`;
+    }
 }
 
 // 复制分享ID
