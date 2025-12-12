@@ -75,6 +75,9 @@ function renderShareContent(data) {
         fileContent.classList.remove('d-none');
         textContent.classList.add('d-none');
         
+        // 生成下载命令
+        generateDownloadCommands(data.shareId, data.fileName);
+
         // 绑定下载事件
         downloadBtn.addEventListener('click', function() {
             if (downloadInProgress) return;
@@ -312,6 +315,39 @@ function formatTime(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         return `${hours}小时${minutes}分钟`;
+    }
+}
+
+// 生成下载命令
+function generateDownloadCommands(shareId, fileName) {
+    const baseUrl = window.location.origin;
+    const downloadUrl = `${baseUrl}/api/share/download?shareId=${shareId}`;
+
+    // 生成命令
+    const wgetCommand = `wget -O "${fileName}" "${downloadUrl}"`;
+    const curlCommand = `curl -o "${fileName}" "${downloadUrl}"`;
+
+    // 设置命令到输入框
+    const wgetCommandEl = document.getElementById('wgetCommand');
+    const curlCommandEl = document.getElementById('curlCommand');
+
+    if (wgetCommandEl) wgetCommandEl.value = wgetCommand;
+    if (curlCommandEl) curlCommandEl.value = curlCommand;
+
+    // 绑定复制事件
+    const copyWgetBtn = document.getElementById('copyWgetBtn');
+    const copyCurlBtn = document.getElementById('copyCurlBtn');
+
+    if (copyWgetBtn) {
+        copyWgetBtn.addEventListener('click', function() {
+            Utils.copyToClipboard(wgetCommand, this);
+        });
+    }
+
+    if (copyCurlBtn) {
+        copyCurlBtn.addEventListener('click', function() {
+            Utils.copyToClipboard(curlCommand, this);
+        });
     }
 }
 

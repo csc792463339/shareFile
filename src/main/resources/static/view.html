@@ -122,6 +122,39 @@
                                 </div>
                             </div>
 
+                            <!-- 命令行下载区域 -->
+                            <div class="mb-3">
+                                <h6 class="text-muted mb-3">
+                                    <i class="fas fa-terminal me-2"></i>命令行下载
+                                </h6>
+
+                                <!-- wget 命令 -->
+                                <div class="mb-3">
+                                    <label class="form-label small text-muted">wget 命令:</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control font-monospace small"
+                                               id="wgetCommand" readonly>
+                                        <button class="btn btn-outline-secondary" id="copyWgetBtn"
+                                                title="复制wget命令">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- curl 命令 -->
+                                <div class="mb-3">
+                                    <label class="form-label small text-muted">curl 命令:</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control font-monospace small"
+                                               id="curlCommand" readonly>
+                                        <button class="btn btn-outline-secondary" id="copyCurlBtn"
+                                                title="复制curl命令">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button class="btn btn-primary w-100 py-3" id="downloadBtn">
                                 <i class="fas fa-download me-2"></i>下载文件
                             </button>
