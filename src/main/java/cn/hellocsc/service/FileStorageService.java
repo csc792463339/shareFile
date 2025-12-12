@@ -29,25 +29,26 @@ public class FileStorageService {
                 ? originalName.substring(originalName.lastIndexOf(".")) : "";
         String uniqueName = UUID.randomUUID() + extension;
 
-        // --- 修复点开始 ---
-        // 1. 获取绝对路径，防止不同组件对相对路径解析不一致
+        // 获取绝对路径
         Path filePath = Paths.get(storagePath, uniqueName).toAbsolutePath().normalize();
 
-        // 2. 打印日志方便调试（可选）
-        log.info("保存文件到: {}", filePath);
-
-        // 3. 确保存储目录存在
+        // 确保存储目录存在
         Files.createDirectories(filePath.getParent());
 
-        // 4. 使用 transferTo (零拷贝)
-        // 现在传入的是绝对路径 File 对象，Undertow 也就不会去临时目录找了
+        // --- 修复点开始 ---
+        // 1. 先获取所有元数据！(因为 transferTo 可能会移动文件导致源文件丢失)
+        long fileSize = file.getSize();
+        String contentType = file.getContentType();
+
+        // 2. 执行传输 (这一步之后，file 对象可能就不可用了)
+        log.info("开始保存文件到: {}", filePath);
         file.transferTo(filePath.toFile());
         // --- 修复点结束 ---
 
         // 设置文件信息
         share.setFileName(originalName);
-        share.setContentType(file.getContentType());
-        share.setSize(file.getSize());
+        share.setContentType(contentType);
+        share.setSize(fileSize); // 使用之前保存的变量，而不是 file.getSize()
         share.setFilePath(filePath.toString());
 
         return share;
@@ -63,7 +64,6 @@ public class FileStorageService {
     public int deleteExpiredFiles(int hours) {
         AtomicInteger deletedCount = new AtomicInteger(0);
         try {
-            // 同样使用绝对路径进行查找清理
             Path dir = Paths.get(storagePath).toAbsolutePath().normalize();
             if (!Files.exists(dir)) {
                 return 0;
