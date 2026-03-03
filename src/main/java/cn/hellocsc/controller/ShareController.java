@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Slf4j
@@ -34,15 +35,7 @@ public class ShareController {
     @PostMapping("/text")
     public Map<String, Object> createTextShare(@RequestBody ShareContent request) {
         ShareContent saved = shareService.createTextShare(request);
-        long expiresIn = getCreateResponseExpiresIn(saved);
-        return Map.of(
-                "shareId", saved.getShareId(),
-                "url", "/view.html?id=" + saved.getShareId(),
-                "createTime", saved.getCreateTime(),
-                "expireTime", saved.getExpireTime(),
-                "retentionDays", shareService.getRetentionDays(),
-                "expiresIn", expiresIn
-        );
+        return buildShareResponse(saved);
     }
 
     // 创建文件分享
@@ -55,14 +48,18 @@ public class ShareController {
         request.setRichText(richText);
 
         ShareContent saved = shareService.createFileShare(file, request);
-        long expiresIn = getCreateResponseExpiresIn(saved);
+        return buildShareResponse(saved);
+    }
+
+    private Map<String, Object> buildShareResponse(ShareContent share) {
+        long expiresIn = Duration.between(LocalDateTime.now(), share.getExpireTime()).getSeconds();
         return Map.of(
-                "shareId", saved.getShareId(),
-                "url", "/view.html?id=" + saved.getShareId(),
-                "createTime", saved.getCreateTime(),
-                "expireTime", saved.getExpireTime(),
+                "shareId", share.getShareId(),
+                "url", "/view.html?id=" + share.getShareId(),
+                "createTime", share.getCreateTime(),
+                "expireTime", share.getExpireTime(),
                 "retentionDays", shareService.getRetentionDays(),
-                "expiresIn", expiresIn
+                "expiresIn", Math.max(0, expiresIn)
         );
     }
 
@@ -156,19 +153,7 @@ public class ShareController {
 
     private boolean isClientDisconnect(Exception e) {
         String msg = e.getMessage();
-        if (msg == null) return false;
         return e instanceof java.nio.channels.ClosedChannelException ||
-                msg.contains("Broken pipe") ||
-                msg.contains("Connection reset") ||
-                msg.contains("ClientAbortException");
-    }
-
-    private long getCreateResponseExpiresIn(ShareContent share) {
-        if (share.getCreateTime() != null && share.getExpireTime() != null) {
-            long configured = shareService.getRetentionDays() * 24L * 60L * 60L;
-            long actual = Duration.between(share.getCreateTime(), share.getExpireTime()).getSeconds();
-            return actual > 0 ? actual : configured;
-        }
-        return shareService.getRetentionDays() * 24L * 60L * 60L;
+                (msg != null && (msg.contains("Broken pipe") || msg.contains("Connection reset") || msg.contains("ClientAbortException")));
     }
 }

@@ -85,11 +85,6 @@ public class ShareService {
         ShareContent share = shareRepository.getShare(shareId, true)
                 .orElseThrow(() -> new ShareNotFoundException("分享内容不存在或已过期"));
 
-        if (isExpired(share)) {
-            shareRepository.deleteShare(shareId);
-            throw new ShareNotFoundException("分享已过期");
-        }
-
         if (share.isFile() && share.getFilePath() != null) {
             Path filePath = fileStorageService.getFile(share.getFilePath());
             if (!Files.exists(filePath)) {
@@ -137,14 +132,6 @@ public class ShareService {
         return Math.max(retentionDays, 1);
     }
 
-    private boolean isExpired(ShareContent share) {
-        LocalDateTime expireTime = share.getExpireTime();
-        if (expireTime == null && share.getCreateTime() != null) {
-            expireTime = share.getCreateTime().plusHours(24);
-            share.setExpireTime(expireTime);
-        }
-        return expireTime == null || LocalDateTime.now().isAfter(expireTime);
-    }
 
     // 生成 5 位数字分享码，达到阈值快速失败
     private String generateShareId() {

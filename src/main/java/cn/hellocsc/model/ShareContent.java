@@ -27,4 +27,25 @@ public class ShareContent {
     // 仅内存存储使用
     @JsonIgnore
     private transient byte[] fileBytes; // 小文件内容 (内存存储)
+
+    /**
+     * 检查分享是否已过期
+     */
+    @JsonIgnore
+    public boolean isExpired() {
+        if (createTime == null) {
+            return true;
+        }
+        LocalDateTime expiryTime = expireTime != null ? expireTime : createTime.plusHours(24);
+        return LocalDateTime.now().isAfter(expiryTime);
+    }
+
+    /**
+     * 确保过期时间已设置（兼容旧数据）
+     */
+    public void ensureExpireTime() {
+        if (expireTime == null && createTime != null) {
+            expireTime = createTime.plusHours(24);
+        }
+    }
 }

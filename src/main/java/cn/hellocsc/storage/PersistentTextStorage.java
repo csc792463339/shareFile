@@ -18,7 +18,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,37 +100,25 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
     }
 
     public Optional<ShareContent> get(String shareId) {
-        ShareContent content;
-
         lock.readLock().lock();
         try {
-            // 优先从内存缓存获取，保证性能
-            content = memoryCache.getIfPresent(shareId);
+            ShareContent content = memoryCache.getIfPresent(shareId);
+            if (content == null || !content.isExpired()) {
+                return Optional.ofNullable(content);
+            }
         } finally {
             lock.readLock().unlock();
         }
 
-        if (content == null) {
-            return Optional.empty();
-        }
-
-        if (!isExpired(content)) {
-            return Optional.of(content);
-        }
-
-        // 过期删除属于写操作，需在写锁下执行
+        // 发现过期数据，升级为写锁删除
         lock.writeLock().lock();
         try {
-            ShareContent latest = memoryCache.getIfPresent(shareId);
-            if (latest == null) {
-                return Optional.empty();
-            }
-            if (isExpired(latest)) {
+            ShareContent content = memoryCache.getIfPresent(shareId);
+            if (content != null && content.isExpired()) {
                 memoryCache.invalidate(shareId);
                 hasChanges = true;
-                return Optional.empty();
             }
-            return Optional.of(latest);
+            return Optional.empty();
         } finally {
             lock.writeLock().unlock();
         }
@@ -166,7 +153,7 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
         lock.readLock().lock();
         try {
             return memoryCache.asMap().values().stream()
-                    .filter(content -> !isExpired(content))
+                    .filter(content -> !content.isExpired())
                     .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
                     .toList();
         } finally {
@@ -182,28 +169,22 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
             return;
         }
 
+        Map<String, ShareContent> snapshot;
         lock.readLock().lock();
-        Map<String, ShareContent> currentData;
         try {
-            // 快速获取当前所有数据的快照
-            currentData = new ConcurrentHashMap<>();
-            memoryCache.asMap().forEach((key, value) -> {
-                if (!isExpired(value)) {
-                    currentData.put(key, value);
-                }
-            });
-            hasChanges = false;
+            snapshot = memoryCache.asMap().entrySet().stream()
+                    .filter(entry -> !entry.getValue().isExpired())
+                    .collect(ConcurrentHashMap::new, (map, entry) -> map.put(entry.getKey(), entry.getValue()), ConcurrentHashMap::putAll);
         } finally {
             lock.readLock().unlock();
         }
 
-        // 异步写入文件
         try {
-            writeToFile(currentData);
-            log.debug("成功将 {} 条记录写入持久化文件", currentData.size());
+            writeToFile(snapshot);
+            hasChanges = false;
+            log.debug("成功将 {} 条记录写入持久化文件", snapshot.size());
         } catch (Exception e) {
             log.error("写入持久化文件失败", e);
-            // 如果写入失败，重新标记为有变更
             hasChanges = true;
         }
     }
@@ -233,7 +214,8 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
 
             for (Map.Entry<String, ShareContent> entry : loadedData.entrySet()) {
                 ShareContent content = entry.getValue();
-                if (!isExpired(content)) {
+                content.ensureExpireTime();
+                if (!content.isExpired()) {
                     memoryCache.put(entry.getKey(), content);
                     loadedCount++;
                 } else {
@@ -285,17 +267,4 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
         }
     }
 
-    /**
-     * 检查内容是否过期
-     */
-    private boolean isExpired(ShareContent content) {
-        if (content == null || content.getCreateTime() == null) {
-            return true;
-        }
-        LocalDateTime expiryTime = content.getExpireTime();
-        if (expiryTime == null) {
-            expiryTime = content.getCreateTime().plusHours(24);
-        }
-        return LocalDateTime.now().isAfter(expiryTime);
-    }
 }

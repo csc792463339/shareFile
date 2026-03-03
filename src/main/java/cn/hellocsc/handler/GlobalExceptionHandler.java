@@ -19,53 +19,38 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ShareNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleShareNotFound(ShareNotFoundException ex) {
         log.warn("分享未找到: {}", ex.getMessage());
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("error", "SHARE_NOT_FOUND");
-        response.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "SHARE_NOT_FOUND", ex.getMessage());
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleMaxSizeException(MaxUploadSizeExceededException ex) {
         log.warn("文件上传大小超出限制");
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("error", "FILE_TOO_LARGE");
-        response.put("message", "文件大小超过500MB限制");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "文件大小超过500MB限制");
     }
 
     @ExceptionHandler(ShareIdExhaustedException.class)
     public ResponseEntity<Map<String, Object>> handleShareIdExhausted(ShareIdExhaustedException ex) {
         log.warn("分享码资源耗尽: {}", ex.getMessage());
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("error", "SHARE_CODE_EXHAUSTED");
-        response.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "SHARE_CODE_EXHAUSTED", ex.getMessage());
     }
 
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<Map<String, Object>> handleSecurityException(SecurityException ex) {
         log.warn("安全验证失败: {}", ex.getMessage());
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("error", "ACCESS_DENIED");
-        response.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "ACCESS_DENIED", ex.getMessage());
     }
 
-    // 只处理特定的业务异常，不处理所有异常
-    // 这样可以确保 Spring Boot 处理静态资源时的异常不会被捕获
-    // 同时避免捕获文件下载过程中的IOException
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ResponseEntity<Map<String, Object>> handleBusinessException(RuntimeException ex) {
         log.error("业务错误: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "BUSINESS_ERROR", ex.getMessage());
+    }
+
+    private ResponseEntity<Map<String, Object>> buildErrorResponse(HttpStatus status, String errorCode, String message) {
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
-        response.put("error", "BUSINESS_ERROR");
-        response.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        response.put("error", errorCode);
+        response.put("message", message);
+        return ResponseEntity.status(status).body(response);
     }
 }

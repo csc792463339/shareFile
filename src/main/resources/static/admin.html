@@ -67,9 +67,140 @@
             border-radius: 8px;
             max-height: 200px;
             overflow-y: auto;
+            position: relative;
         }
-        .toolbar .form-select {
-            min-width: 130px;
+        .filter-bar {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .filter-select {
+            min-width: 140px;
+            height: 38px;
+            border-radius: 8px;
+            border: 1.5px solid #cbd5e1;
+            padding: 0 12px;
+            font-size: 14px;
+            background: white;
+            color: #1e293b;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 32px;
+        }
+        .filter-select:hover {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.08);
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.12);
+        }
+        .btn-refresh {
+            height: 38px;
+            padding: 0 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            border: none;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+        }
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+        }
+        .btn-refresh:active {
+            transform: translateY(0);
+        }
+        .filter-divider {
+            width: 1px;
+            height: 24px;
+            background: #e2e8f0;
+            margin: 0 4px;
+        }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .btn-copy {
+            background: #10b981;
+            color: white;
+            border: none;
+        }
+        .btn-copy:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .btn-download {
+            background: #3b82f6;
+            color: white;
+            border: none;
+        }
+        .btn-download:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .content-wrapper {
+            position: relative;
+        }
+        .copy-success {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            z-index: 9999;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
         .pagination-wrap {
             display: flex;
@@ -147,32 +278,52 @@
             </div>
         </div>
 
+        <div class="filter-bar">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <span class="filter-label"><i class="fas fa-filter me-1"></i>类型</span>
+                    <select class="filter-select" id="typeFilter">
+                        <option value="all">全部类型</option>
+                        <option value="file">📁 文件</option>
+                        <option value="text">📝 文本</option>
+                    </select>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <div class="filter-item">
+                    <span class="filter-label"><i class="fas fa-sort me-1"></i>排序</span>
+                    <select class="filter-select" id="sortSelect">
+                        <option value="createTimeDesc">⬇️ 最新优先</option>
+                        <option value="createTimeAsc">⬆️ 最早优先</option>
+                    </select>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <div class="filter-item">
+                    <span class="filter-label"><i class="fas fa-list-ol me-1"></i>每页</span>
+                    <select class="filter-select" id="sizeSelect">
+                        <option value="20">20 条</option>
+                        <option value="50">50 条</option>
+                        <option value="100">100 条</option>
+                    </select>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <button class="btn-refresh" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>刷新数据</span>
+                </button>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 py-3">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h5 class="mb-0 fw-bold">
-                        <i class="fas fa-list me-2"></i>分享记录
-                    </h5>
-                    <div class="toolbar d-flex gap-2">
-                        <select class="form-select form-select-sm" id="typeFilter">
-                            <option value="all">全部类型</option>
-                            <option value="file">仅文件</option>
-                            <option value="text">仅文本</option>
-                        </select>
-                        <select class="form-select form-select-sm" id="sortSelect">
-                            <option value="createTimeDesc">创建时间降序</option>
-                            <option value="createTimeAsc">创建时间升序</option>
-                        </select>
-                        <select class="form-select form-select-sm" id="sizeSelect">
-                            <option value="20">20 / 页</option>
-                            <option value="50">50 / 页</option>
-                            <option value="100">100 / 页</option>
-                        </select>
-                        <button class="btn btn-sm btn-primary" id="refreshBtn">
-                            <i class="fas fa-sync-alt me-1"></i>刷新
-                        </button>
-                    </div>
-                </div>
+                <h5 class="mb-0 fw-bold">
+                    <i class="fas fa-list me-2"></i>分享记录
+                </h5>
             </div>
             <div class="card-body p-3 p-md-4">
                 <div id="sharesList"></div>
@@ -315,13 +466,27 @@
                     </div>
 
                     ${share.file ? `
-                        <div class="mb-2">
-                            <i class="fas fa-file me-2 text-primary"></i>
-                            <strong>${escapeHtml(share.fileName || '-')}</strong>
-                            <span class="text-muted ms-2">(${formatSize(share.size || 0)})</span>
+                        <div class="content-wrapper mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-file me-2 text-primary"></i>
+                                    <strong>${escapeHtml(share.fileName || '-')}</strong>
+                                    <span class="text-muted ms-2">(${formatSize(share.size || 0)})</span>
+                                </div>
+                                <button class="btn btn-action btn-download" onclick="downloadFile('${escapeHtml(share.shareId || '')}')">
+                                    <i class="fas fa-download"></i>下载
+                                </button>
+                            </div>
                         </div>
                     ` : `
-                        <div class="text-content mb-2">${escapeHtml((share.textContent || '').slice(0, 1000))}</div>
+                        <div class="content-wrapper mb-2">
+                            <div class="text-content">${escapeHtml((share.textContent || '').slice(0, 1000))}</div>
+                            <div class="mt-2">
+                                <button class="btn btn-action btn-copy" onclick="copyText('${escapeHtml(share.shareId || '')}', \`${escapeHtml((share.textContent || '').replace(/`/g, '\\`').replace(/\$/g, '\\$'))}\`)">
+                                    <i class="fas fa-copy"></i>复制内容
+                                </button>
+                            </div>
+                        </div>
                     `}
 
                     <div class="d-flex flex-wrap gap-3 align-items-center text-muted small">
@@ -423,6 +588,49 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    async function copyText(shareId, text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            showCopySuccess();
+        } catch (error) {
+            // 降级方案：使用 textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showCopySuccess();
+            } catch (err) {
+                alert('复制失败，请手动复制');
+            }
+            document.body.removeChild(textarea);
+        }
+    }
+
+    function showCopySuccess() {
+        const toast = document.createElement('div');
+        toast.className = 'copy-success';
+        toast.innerHTML = '<i class="fas fa-check-circle me-2"></i>复制成功！';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideIn 0.3s ease-out reverse';
+            setTimeout(() => document.body.removeChild(toast), 300);
+        }, 2000);
+    }
+
+    function downloadFile(shareId) {
+        const url = `/api/share/download?shareId=${encodeURIComponent(shareId)}`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 </script>
 
