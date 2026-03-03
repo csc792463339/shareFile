@@ -97,9 +97,9 @@ class Utils {
         }
     }
 
-    // 生成随机分享ID (4位数字)
+    // 生成随机分享ID (5位数字)
     static generateShareId() {
-        return Math.floor(1000 + Math.random() * 9000).toString();
+        return Math.floor(Math.random() * 100000).toString().padStart(5, '0');
     }
 
     // 检测文本类型
@@ -168,16 +168,22 @@ class Utils {
         toast.setAttribute('role', 'alert');
         toast.setAttribute('aria-live', 'assertive');
         toast.setAttribute('aria-atomic', 'true');
+        const toastWrapper = document.createElement('div');
+        toastWrapper.className = 'd-flex';
 
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto"
-                        data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        `;
+        const toastBody = document.createElement('div');
+        toastBody.className = 'toast-body';
+        toastBody.textContent = String(message ?? '');
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
+        closeBtn.setAttribute('data-bs-dismiss', 'toast');
+        closeBtn.setAttribute('aria-label', 'Close');
+
+        toastWrapper.appendChild(toastBody);
+        toastWrapper.appendChild(closeBtn);
+        toast.appendChild(toastWrapper);
 
         toastContainer.appendChild(toast);
 

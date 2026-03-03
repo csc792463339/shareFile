@@ -24,11 +24,12 @@ function loadShareContent(shareId) {
         })
         .catch(error => {
             console.error('加载分享内容失败:', error);
+            const safeMessage = Utils.escapeHtml(error.message || '加载分享内容失败，请检查分享ID是否正确');
             contentContainer.innerHTML = `
                 <div class="alert alert-warning text-center">
                     <i class="fas fa-exclamation-triangle fa-2x mb-3 text-warning"></i>
                     <h4>加载失败</h4>
-                    <p>${error.message || '加载分享内容失败，请检查分享ID是否正确'}</p>
+                    <p>${safeMessage}</p>
                     <button class="btn btn-primary mt-3" onclick="window.location.href='/'">
                         <i class="fas fa-home me-1"></i>返回首页
                     </button>
@@ -56,10 +57,12 @@ function renderShareContent(data) {
     const fileTypeEl = document.getElementById('fileType');
 
     // 更新标题
-    contentTitle.innerHTML = `<i class="fas fa-${data.file ? 'file' : 'font'} me-2 text-primary"></i>${data.file ? data.fileName : '分享的文本内容'}`;
+    const titleText = data.file ? Utils.escapeHtml(data.fileName) : '分享的文本内容';
+    contentTitle.innerHTML = `<i class="fas fa-${data.file ? 'file' : 'font'} me-2 text-primary"></i>${titleText}`;
 
     // 更新查看次数
     viewCount.textContent = data.viewCount || 0;
+    renderTimeInfo(data);
 
     // 显示内容容器
     contentContainer.classList.remove('d-none');
@@ -89,12 +92,12 @@ function renderShareContent(data) {
         // 渲染文本内容
         let contentHtml = '';
 
-        if (data.isRichText) {
+        if (data.richText) {
             const textType = Utils.detectTextType(data.textContent);
 
             if (textType === 'markdown') {
                 // Markdown 渲染
-                contentHtml = marked.parse(data.textContent);
+                contentHtml = marked.parse(Utils.escapeHtml(data.textContent));
             } else if (textType === 'json') {
                 // JSON 格式化
                 try {
@@ -103,13 +106,6 @@ function renderShareContent(data) {
                 } catch (e) {
                     contentHtml = `<pre><code class="language-text">${Utils.escapeHtml(data.textContent)}</code></pre>`;
                 }
-            } else if (textType === 'html') {
-                // HTML 预览
-                contentHtml = `
-                    <div class="border rounded p-3" style="max-height: 600px; overflow: auto;">
-                        ${data.textContent}
-                    </div>
-                `;
             } else {
                 // 代码高亮
                 contentHtml = `<pre><code class="language-${textType}">${Utils.escapeHtml(data.textContent)}</code></pre>`;
@@ -146,6 +142,29 @@ function renderShareContent(data) {
             Utils.copyToClipboard(contentToCopy, this);
         });
     }
+}
+
+function renderTimeInfo(data) {
+    const createTimeInfo = document.getElementById('createTimeInfo');
+    const expireTimeInfo = document.getElementById('expireTimeInfo');
+    const remainingDaysInfo = document.getElementById('remainingDaysInfo');
+    const validityInfo = document.getElementById('validityInfo');
+
+    const createTimeText = data.createTime ? Utils.formatDate(data.createTime) : '--';
+    const expireTimeText = data.expireTime ? Utils.formatDate(data.expireTime) : '--';
+
+    let remainingDaysText = '--';
+    if (Number.isFinite(data.remainingDays)) {
+        remainingDaysText = `${Math.max(data.remainingDays, 0)} 天`;
+    } else if (Number.isFinite(data.remainingSeconds)) {
+        const days = Math.ceil(Math.max(data.remainingSeconds, 0) / 86400);
+        remainingDaysText = `${days} 天`;
+    }
+
+    if (createTimeInfo) createTimeInfo.textContent = createTimeText;
+    if (expireTimeInfo) expireTimeInfo.textContent = expireTimeText;
+    if (remainingDaysInfo) remainingDaysInfo.textContent = remainingDaysText;
+    if (validityInfo) validityInfo.textContent = `有效期：到 ${expireTimeText}`;
 }
 
 // 下载文件

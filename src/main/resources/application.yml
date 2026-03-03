@@ -1,5 +1,5 @@
 server:
-  port: 80
+  port: 8088
   servlet:
     context-path: /
   # --- 性能优化配置开始 ---
@@ -22,16 +22,35 @@ spring:
       enabled: true
   servlet:
     multipart:
-      max-file-size: 5000MB
-      max-request-size: 5000MB
+      max-file-size: 500MB
+      max-request-size: 500MB
       # 设置文件阈值，超过该大小直接写入磁盘而非内存，减少内存压力
       file-size-threshold: 2MB
+  main:
+    web-application-type: servlet
   security:
     user:
       name: admin
+  data:
+    redis:
+      host: 106.75.32.155
+      port: 6379
+      password: hellocsc
+      jedis:
+        pool:
+          enabled: true
+          max-active: 15
+          max-wait: 500
+          min-idle: 3
+          max-idle: 10
+      database: 2
 
 # 应用存储配置
 app:
+  share:
+    retention-days: 30
+  redis:
+    fallback-enabled: true
   storage:
     # 元数据文件路径
     metadata-file: ./data/shares_metadata.json
@@ -40,9 +59,10 @@ app:
     # 是否启用性能测试（开发测试时使用）
     performance-test: false
     # 是否启用数据修复工具（修复缺失的filePath字段）
-    repair: true
-  main:
-    web-application-type: servlet
+    repair: false
+  # 管理员配置
+  admin:
+    password: csc
 
 storage:
   path: ${STORAGE_PATH:files}

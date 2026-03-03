@@ -240,7 +240,7 @@ function uploadFile() {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('isRichText', 'false');
+    formData.append('richText', 'false');
 
     const xhr = new XMLHttpRequest();
 
@@ -462,7 +462,8 @@ function updatePreview(content, isRichText) {
     safeUtils((Utils) => {
         const textType = Utils.detectTextType(content);
         if (textType === 'markdown' && typeof marked !== 'undefined') {
-            previewContent.innerHTML = marked.parse(content);
+            // 先转义 HTML，再进行 Markdown 渲染，避免原始 HTML 注入
+            previewContent.innerHTML = marked.parse(escapeHtml(content));
         } else if (textType === 'json') {
             try {
                 const formatted = JSON.stringify(JSON.parse(content), null, 2);
@@ -471,8 +472,6 @@ function updatePreview(content, isRichText) {
             } catch (e) {
                 previewContent.innerHTML = `<pre><code class="language-text">${escapeHtml(content)}</code></pre>`;
             }
-        } else if (textType === 'html') {
-            previewContent.innerHTML = `<div class="border rounded p-3" style="max-height: 400px; overflow: auto;">${content}</div>`;
         } else {
             previewContent.innerHTML = `<pre><code class="language-${textType}">${escapeHtml(content)}</code></pre>`;
             if (typeof hljs !== 'undefined') {
@@ -510,7 +509,7 @@ function shareText() {
 
     const requestData = {
         textContent: content,
-        isRichText: richTextToggle?.checked || false
+        richText: richTextToggle?.checked || false
     };
 
     fetch('/api/share/text', {

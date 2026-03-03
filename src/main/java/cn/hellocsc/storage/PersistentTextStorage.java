@@ -35,10 +35,9 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
     @Value("${app.storage.metadata-file:./data/shares_metadata.json}")
     private String metadataFilePath;
 
-    // 内存缓存，保持高性能访问
+    // 内存缓存，按 30 天窗口保留（实际过期仍由每条记录的 expireTime 决定）
     private final Cache<String, ShareContent> memoryCache = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofHours(24))
-            .maximumSize(5000)
+            .expireAfterWrite(Duration.ofDays(30))
             .build();
 
     // 用于异步写入的线程池
@@ -102,23 +101,39 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
     }
 
     public Optional<ShareContent> get(String shareId) {
+        ShareContent content;
+
         lock.readLock().lock();
         try {
             // 优先从内存缓存获取，保证性能
-            ShareContent content = memoryCache.getIfPresent(shareId);
-            if (content != null) {
-                // 检查是否过期
-                if (isExpired(content)) {
-                    memoryCache.invalidate(shareId);
-                    hasChanges = true;
-                    return Optional.empty();
-                }
-                return Optional.of(content);
-            }
-
-            return Optional.empty();
+            content = memoryCache.getIfPresent(shareId);
         } finally {
             lock.readLock().unlock();
+        }
+
+        if (content == null) {
+            return Optional.empty();
+        }
+
+        if (!isExpired(content)) {
+            return Optional.of(content);
+        }
+
+        // 过期删除属于写操作，需在写锁下执行
+        lock.writeLock().lock();
+        try {
+            ShareContent latest = memoryCache.getIfPresent(shareId);
+            if (latest == null) {
+                return Optional.empty();
+            }
+            if (isExpired(latest)) {
+                memoryCache.invalidate(shareId);
+                hasChanges = true;
+                return Optional.empty();
+            }
+            return Optional.of(latest);
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
@@ -141,6 +156,21 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
             hasChanges = true;
         } finally {
             lock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * 获取所有分享内容列表（按创建时间倒序）
+     */
+    public java.util.List<ShareContent> getAllShares() {
+        lock.readLock().lock();
+        try {
+            return memoryCache.asMap().values().stream()
+                    .filter(content -> !isExpired(content))
+                    .sorted((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()))
+                    .toList();
+        } finally {
+            lock.readLock().unlock();
         }
     }
 
@@ -262,7 +292,10 @@ public class PersistentTextStorage implements InitializingBean, DisposableBean {
         if (content == null || content.getCreateTime() == null) {
             return true;
         }
-        LocalDateTime expiryTime = content.getCreateTime().plusHours(24);
+        LocalDateTime expiryTime = content.getExpireTime();
+        if (expiryTime == null) {
+            expiryTime = content.getCreateTime().plusHours(24);
+        }
         return LocalDateTime.now().isAfter(expiryTime);
     }
 }

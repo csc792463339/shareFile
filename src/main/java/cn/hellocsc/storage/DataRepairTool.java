@@ -14,7 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -58,16 +59,20 @@ public class DataRepairTool implements CommandLineRunner {
 
         // 读取现有数据
         String jsonContent = Files.readString(metadataFile, StandardCharsets.UTF_8);
+        if (jsonContent.trim().isEmpty()) {
+            log.info("元数据文件为空，无需修复");
+            return;
+        }
         TypeReference<Map<String, ShareContent>> typeRef = new TypeReference<>() {};
         Map<String, ShareContent> shareData = objectMapper.readValue(jsonContent, typeRef);
 
         // 扫描存储目录中的所有文件
-        Map<String, Long> filesBySize = scanStorageDirectory();
+        List<StorageFileInfo> storageFiles = scanStorageDirectory();
 
         int repaired = 0;
         for (ShareContent share : shareData.values()) {
             if (share.isFile() && share.getFilePath() == null) {
-                String matchedFile = findMatchingFile(share, filesBySize);
+                String matchedFile = findMatchingFile(share, storageFiles);
                 if (matchedFile != null) {
                     share.setFilePath(matchedFile);
                     repaired++;
@@ -93,22 +98,22 @@ public class DataRepairTool implements CommandLineRunner {
         }
     }
 
-    private Map<String, Long> scanStorageDirectory() throws IOException {
-        Map<String, Long> filesBySize = new HashMap<>();
+    private List<StorageFileInfo> scanStorageDirectory() throws IOException {
+        List<StorageFileInfo> storageFiles = new ArrayList<>();
 
         // 扫描主存储目录
-        scanDirectory(Paths.get(storagePath), filesBySize);
+        scanDirectory(Paths.get(storagePath).toAbsolutePath().normalize(), false, storageFiles);
 
         // 为了兼容性，也扫描旧的 "file" 目录
-        Path oldStorageDir = Paths.get("file");
+        Path oldStorageDir = Paths.get("file").toAbsolutePath().normalize();
         if (Files.exists(oldStorageDir)) {
-            scanDirectory(oldStorageDir, filesBySize);
+            scanDirectory(oldStorageDir, true, storageFiles);
         }
 
-        return filesBySize;
+        return storageFiles;
     }
 
-    private void scanDirectory(Path dir, Map<String, Long> filesBySize) throws IOException {
+    private void scanDirectory(Path dir, boolean useAbsolutePath, List<StorageFileInfo> storageFiles) throws IOException {
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             return;
         }
@@ -117,8 +122,13 @@ public class DataRepairTool implements CommandLineRunner {
             files.filter(Files::isRegularFile)
                  .forEach(file -> {
                      try {
+                         String fileName = file.getFileName().toString();
                          long size = Files.size(file);
-                         filesBySize.put(file.getFileName().toString(), size);
+                         String storedPath = useAbsolutePath ? file.toAbsolutePath().toString() : fileName;
+                         storageFiles.add(new StorageFileInfo(
+                                 storedPath,
+                                 size,
+                                 extractExtension(fileName)));
                      } catch (IOException e) {
                          log.warn("无法读取文件大小: {}", file);
                      }
@@ -126,13 +136,57 @@ public class DataRepairTool implements CommandLineRunner {
         }
     }
 
-    private String findMatchingFile(ShareContent share, Map<String, Long> filesBySize) {
-        // 按文件大小匹配（这是最可靠的方式，因为UUID文件名已经改变）
-        for (Map.Entry<String, Long> entry : filesBySize.entrySet()) {
-            if (entry.getValue().equals(share.getSize())) {
-                return entry.getKey();
+    private String findMatchingFile(ShareContent share, List<StorageFileInfo> storageFiles) {
+        List<StorageFileInfo> sizeMatches = storageFiles.stream()
+                .filter(file -> file.size == share.getSize())
+                .toList();
+
+        if (sizeMatches.isEmpty()) {
+            return null;
+        }
+
+        if (sizeMatches.size() == 1) {
+            return sizeMatches.get(0).storedPath;
+        }
+
+        String expectedExtension = extractExtension(share.getFileName());
+        if (!expectedExtension.isEmpty()) {
+            List<StorageFileInfo> extensionMatches = sizeMatches.stream()
+                    .filter(file -> expectedExtension.equalsIgnoreCase(file.extension))
+                    .toList();
+
+            if (extensionMatches.size() == 1) {
+                return extensionMatches.get(0).storedPath;
+            }
+
+            if (extensionMatches.size() > 1) {
+                log.warn("按大小+扩展名匹配到多个候选，跳过修复 - 分享ID: {}, 候选数: {}",
+                        share.getShareId(), extensionMatches.size());
+                return null;
             }
         }
+
+        log.warn("按大小匹配到多个候选，跳过修复 - 分享ID: {}, 候选数: {}",
+                share.getShareId(), sizeMatches.size());
         return null;
+    }
+
+    private String extractExtension(String fileName) {
+        if (fileName == null || fileName.isBlank() || !fileName.contains(".")) {
+            return "";
+        }
+        return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+    }
+
+    private static class StorageFileInfo {
+        private final String storedPath;
+        private final long size;
+        private final String extension;
+
+        private StorageFileInfo(String storedPath, long size, String extension) {
+            this.storedPath = storedPath;
+            this.size = size;
+            this.extension = extension;
+        }
     }
 }

@@ -114,7 +114,7 @@ function startShareCountdown() {
     const hoursEl = document.getElementById('hours');
     if (!hoursEl) return;
 
-    let totalSeconds = 24 * 60 * 60; // 24小时
+    let totalSeconds = 30 * 24 * 60 * 60; // 30天
     updateCountdownDisplay(totalSeconds);
 
     const countdownInterval = setInterval(() => {
@@ -146,7 +146,7 @@ function generateQRCode(shareId) {
     const qrcodeContainer = document.getElementById('qrcode');
     if (!qrcodeContainer || !shareId) return;
 
-    const shareUrl = `${window.location.origin}/view/${shareId}`;
+    const shareUrl = `${window.location.origin}/view.html?id=${shareId}`;
     qrcodeContainer.innerHTML = '';
 
     // 使用 qrcode.js 生成

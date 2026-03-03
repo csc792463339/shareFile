@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.util.Map;
 
 @Slf4j
@@ -33,10 +34,14 @@ public class ShareController {
     @PostMapping("/text")
     public Map<String, Object> createTextShare(@RequestBody ShareContent request) {
         ShareContent saved = shareService.createTextShare(request);
+        long expiresIn = getCreateResponseExpiresIn(saved);
         return Map.of(
                 "shareId", saved.getShareId(),
                 "url", "/view.html?id=" + saved.getShareId(),
-                "expiresIn", 86400
+                "createTime", saved.getCreateTime(),
+                "expireTime", saved.getExpireTime(),
+                "retentionDays", shareService.getRetentionDays(),
+                "expiresIn", expiresIn
         );
     }
 
@@ -44,16 +49,20 @@ public class ShareController {
     @PostMapping("/file")
     public Map<String, Object> createFileShare(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("isRichText") boolean isRichText) throws IOException {
+            @RequestParam(value = "richText", defaultValue = "false") boolean richText) throws IOException {
 
         ShareContent request = new ShareContent();
-        request.setRichText(isRichText);
+        request.setRichText(richText);
 
         ShareContent saved = shareService.createFileShare(file, request);
+        long expiresIn = getCreateResponseExpiresIn(saved);
         return Map.of(
                 "shareId", saved.getShareId(),
                 "url", "/view.html?id=" + saved.getShareId(),
-                "expiresIn", 86400
+                "createTime", saved.getCreateTime(),
+                "expireTime", saved.getExpireTime(),
+                "retentionDays", shareService.getRetentionDays(),
+                "expiresIn", expiresIn
         );
     }
 
@@ -152,5 +161,14 @@ public class ShareController {
                 msg.contains("Broken pipe") ||
                 msg.contains("Connection reset") ||
                 msg.contains("ClientAbortException");
+    }
+
+    private long getCreateResponseExpiresIn(ShareContent share) {
+        if (share.getCreateTime() != null && share.getExpireTime() != null) {
+            long configured = shareService.getRetentionDays() * 24L * 60L * 60L;
+            long actual = Duration.between(share.getCreateTime(), share.getExpireTime()).getSeconds();
+            return actual > 0 ? actual : configured;
+        }
+        return shareService.getRetentionDays() * 24L * 60L * 60L;
     }
 }

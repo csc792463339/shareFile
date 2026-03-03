@@ -1,18 +1,21 @@
 package cn.hellocsc.service;
 
+import cn.hellocsc.exception.ShareIdExhaustedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import cn.hellocsc.exception.ShareNotFoundException;
+import cn.hellocsc.model.AdminSharesPageResponse;
 import cn.hellocsc.model.ShareContent;
-import cn.hellocsc.storage.PersistentTextStorage;
+import cn.hellocsc.storage.ShareRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
@@ -20,23 +23,37 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class ShareService {
 
-    private final PersistentTextStorage persistentTextStorage;
+    private static final int SHARE_ID_LENGTH = 5;
+    private static final int SHARE_ID_SPACE = 100_000;
+    private static final int SHARE_ID_GENERATE_ATTEMPTS = 500;
+    private static final Duration SHARE_ID_RESERVE_TTL = Duration.ofSeconds(5);
+
+    private final ShareRepository shareRepository;
     private final FileStorageService fileStorageService;
+
+    @Value("${app.share.retention-days:30}")
+    private int retentionDays;
 
     public ShareContent createTextShare(ShareContent request) {
         if (request.getTextContent() == null || request.getTextContent().isEmpty()) {
             throw new IllegalArgumentException("文本内容不能为空");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expireTime = now.plusDays(getRetentionDays());
         String shareId = generateShareId();
         request.setShareId(shareId);
         request.setFile(false);
-        request.setCreateTime(LocalDateTime.now());
+        request.setCreateTime(now);
+        request.setExpireTime(expireTime);
+        request.setRetentionPolicy("D30");
+        request.setSize(request.getTextContent().length());
         request.setViewCount(0);
 
-        persistentTextStorage.save(request);
+        shareRepository.saveShare(request);
 
-        log.info("创建文本分享成功 - ID: {}, 大小: {} 字符", shareId, request.getTextContent().length());
+        log.info("创建文本分享成功 - ID: {}, 大小: {} 字符, 到期: {}",
+                shareId, request.getTextContent().length(), expireTime);
         return request;
     }
 
@@ -45,45 +62,43 @@ public class ShareService {
             throw new IllegalArgumentException("文件不能为空");
         }
 
+        LocalDateTime now = LocalDateTime.now();
         ShareContent share = new ShareContent();
         share.setFile(true);
         share.setShareId(generateShareId());
-        share.setCreateTime(LocalDateTime.now());
+        share.setCreateTime(now);
+        share.setExpireTime(now.plusDays(getRetentionDays()));
+        share.setRetentionPolicy("D30");
         share.setViewCount(0);
         share.setRichText(request.isRichText());
 
         ShareContent savedShare = fileStorageService.saveFile(file, share);
-        persistentTextStorage.save(savedShare);
+        shareRepository.saveShare(savedShare);
 
-        log.info("创建文件分享成功 - ID: {}, 文件名: {}, 大小: {} 字节",
-                savedShare.getShareId(), savedShare.getFileName(), savedShare.getSize());
+        log.info("创建文件分享成功 - ID: {}, 文件名: {}, 大小: {} 字节, 到期: {}",
+                savedShare.getShareId(), savedShare.getFileName(), savedShare.getSize(), savedShare.getExpireTime());
 
         return savedShare;
     }
 
     public ShareContent getShareContent(String shareId) {
-        Optional<ShareContent> shareOpt = persistentTextStorage.get(shareId);
+        ShareContent share = shareRepository.getShare(shareId, true)
+                .orElseThrow(() -> new ShareNotFoundException("分享内容不存在或已过期"));
 
-        if (shareOpt.isPresent()) {
-            ShareContent share = shareOpt.get();
-            validateShareAccess(share);
-
-            // 简单的计数器更新（非线程安全但足够用）
-            share.setViewCount(share.getViewCount() + 1);
-
-            if (share.isFile() && share.getFilePath() != null) {
-                Path filePath = fileStorageService.getFile(share.getFilePath());
-                if (!Files.exists(filePath)) {
-                    persistentTextStorage.invalidate(shareId);
-                    throw new ShareNotFoundException("文件不存在或已被删除");
-                }
-            }
-
-            persistentTextStorage.save(share);
-            return share;
+        if (isExpired(share)) {
+            shareRepository.deleteShare(shareId);
+            throw new ShareNotFoundException("分享已过期");
         }
 
-        throw new ShareNotFoundException("分享内容不存在或已过期");
+        if (share.isFile() && share.getFilePath() != null) {
+            Path filePath = fileStorageService.getFile(share.getFilePath());
+            if (!Files.exists(filePath)) {
+                shareRepository.deleteShare(shareId);
+                throw new ShareNotFoundException("文件不存在或已被删除");
+            }
+        }
+
+        return share;
     }
 
     public Path getFileForDownload(ShareContent share) {
@@ -101,11 +116,8 @@ public class ShareService {
 
     // 执行清理任务
     public int cleanupExpiredShares() {
-        // 1. 清理磁盘上的物理文件 (保留24小时内的文件)
-        int cleanedFiles = fileStorageService.deleteExpiredFiles(24);
-
-        // 2. 触发缓存的清理
-        persistentTextStorage.cleanUp();
+        int cleanedFiles = fileStorageService.deleteExpiredFiles(getRetentionDays() * 24);
+        shareRepository.flushDirtyViewCountsToBackup();
 
         if (cleanedFiles > 0) {
             log.info("执行清理任务：物理删除了 {} 个过期文件", cleanedFiles);
@@ -113,33 +125,37 @@ public class ShareService {
         return cleanedFiles;
     }
 
-    private void validateShareAccess(ShareContent share) {
-        LocalDateTime expiryTime = share.getCreateTime().plusHours(24);
-        if (LocalDateTime.now().isAfter(expiryTime)) {
-            throw new ShareNotFoundException("分享已过期");
-        }
+    public AdminSharesPageResponse getAdminSharesPage(int page, int size, String type, String sort) {
+        return shareRepository.queryShares(page, size, type, sort);
     }
 
-    // 生成 ID (改进版：6位数字字母组合)
-    private String generateShareId() {
-        // 去除容易混淆的字符 (0, O, 1, I)
-        String chars = "0123456789";
-        int length = 4;
-        StringBuilder sb = new StringBuilder();
+    public void deleteShare(String shareId) {
+        shareRepository.deleteShare(shareId);
+    }
 
-        // 尝试生成唯一ID，最多重试5次
-        for (int retry = 0; retry < 5; retry++) {
-            sb.setLength(0);
-            for (int i = 0; i < length; i++) {
-                int index = ThreadLocalRandom.current().nextInt(chars.length());
-                sb.append(chars.charAt(index));
-            }
-            String id = sb.toString();
-            if (!persistentTextStorage.get(id).isPresent()) {
+    public int getRetentionDays() {
+        return Math.max(retentionDays, 1);
+    }
+
+    private boolean isExpired(ShareContent share) {
+        LocalDateTime expireTime = share.getExpireTime();
+        if (expireTime == null && share.getCreateTime() != null) {
+            expireTime = share.getCreateTime().plusHours(24);
+            share.setExpireTime(expireTime);
+        }
+        return expireTime == null || LocalDateTime.now().isAfter(expireTime);
+    }
+
+    // 生成 5 位数字分享码，达到阈值快速失败
+    private String generateShareId() {
+        int attempts = Math.min(SHARE_ID_GENERATE_ATTEMPTS, SHARE_ID_SPACE);
+        for (int retry = 0; retry < attempts; retry++) {
+            int num = ThreadLocalRandom.current().nextInt(SHARE_ID_SPACE);
+            String id = String.format("%0" + SHARE_ID_LENGTH + "d", num);
+            if (shareRepository.reserveShareId(id, SHARE_ID_RESERVE_TTL)) {
                 return id;
             }
         }
-        // 如果极低概率下失败，退回到时间戳+随机数
-        return String.valueOf(System.currentTimeMillis() % 1000000);
+        throw new ShareIdExhaustedException("分享码资源暂时耗尽，请稍后重试");
     }
 }

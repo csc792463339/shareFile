@@ -1,6 +1,7 @@
 package cn.hellocsc.handler;
 
 import lombok.extern.slf4j.Slf4j;
+import cn.hellocsc.exception.ShareIdExhaustedException;
 import cn.hellocsc.exception.ShareNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,16 @@ public class GlobalExceptionHandler {
         response.put("error", "FILE_TOO_LARGE");
         response.put("message", "文件大小超过500MB限制");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(ShareIdExhaustedException.class)
+    public ResponseEntity<Map<String, Object>> handleShareIdExhausted(ShareIdExhaustedException ex) {
+        log.warn("分享码资源耗尽: {}", ex.getMessage());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "SHARE_CODE_EXHAUSTED");
+        response.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
 
     @ExceptionHandler(SecurityException.class)
